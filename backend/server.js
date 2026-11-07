@@ -1,51 +1,57 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
-import path from 'node:path';
-import { url } from 'node:inspector';
-import { error } from 'node:console';
+import path, { matchesGlob } from 'node:path';
+import dotenv from 'dotenv';
+import {Server} from 'socket.io';
 
-// const basefolder = path.basename(import.meta.dirname);
-const frontendDir = path.resolve(import.meta.dirname, '../frontend');
+import getMimeType from './utils/getMimeType.js';
 
-const resType = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'text/javascript',
-  'json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
-};
+const frontendDir = "frontend"; // either path from root or relative to where node started
+const baseUrl = process.env.BASE_URL;
 
-const server = http.createServer(async (req, res)=>{
+dotenv.config();
+
+// https for serving content
+const httpServer = http.createServer(async (req, res)=>{
   try{
     const reqUrl = req.url;
     const fullUrl = new URL(reqUrl, 'http://localhost');
-    const pathname = decodeURIComponent(fullUrl.pathname);
-    // console.log(reqUrl, fullUrl.pathname, pathname);  
+    const pathname = decodeURIComponent(fullUrl.pathname); // decodeURIComponent decodes spaces and symbols used in paths
   
     const reqPath = path.join(frontendDir, pathname === '/' ? '/index.html': pathname);
     
-    console.log(frontendDir);
-    if (reqPath !== frontendDir && !reqPath.startsWith(frontendDir + path.sep)){
+    if (!reqPath.startsWith(frontendDir + path.sep)){
       res.writeHead(403);
-      return res.end('Forbidden');
+      return res.end('Cannot serve outside Frontend');
     }
 
     const file = await readFile(reqPath);
-    const contentType = resType[path.extname(reqPath)];
+    const mimeType = getMimeType([path.extname(reqPath)]);
   
-    res.writeHead(200, {'Content-Type': contentType});
+    res.writeHead(200, {'Content-Type': mimeType});
     res.end(file);
-
   }
   catch(err){
+    if (err.code == 'ENOENT'){
+      res.writeHead(404);
+      const file404  = await readFile('frontend/pages/404.html');
+      res.end(file404);
+    }
     res.writeHead(404);
     res.end(err.message);
   }
 });
 
-server.listen(8000, '0.0.0.0', ()=>{
+const io = new Server(httpServer)
+
+io.on('connection', async (socket) => {
+  socket.on('room create id', (id)=>{
+    console.log(id)
+  })
+});
+
+httpServer.listen(8000, '0.0.0.0', ()=>{
   console.log('Connected on port: 8000');
 }); 
+
+export default io;

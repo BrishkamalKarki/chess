@@ -1,0 +1,89 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: #171a21;
+  color: #e5e7eb;
+  font-family: Arial, sans-serif;
+}
+
+#errorContainer {
+  width: 100%;
+  max-width: 550px;
+  padding: 45px 30px;
+  text-align: center;
+  background: #222630;
+  border: 1px solid #353b48;
+  border-radius: 16px;
+}
+
+#chessIcon {
+  font-size: 75px;
+  color: #b58863;
+  margin-bottom: 10px;
+}
+
+#errorCode {
+  font-size: clamp(80px, 18vw, 130px);
+  line-height: 1;
+  font-weight: 800;
+  color: #b58863;
+  letter-spacing: 5px;
+}
+
+#errorTitle {
+  margin-top: 20px;
+  font-size: clamp(20px, 5vw, 26px);
+  color: #f0d9b5;
+}
+
+#errorMessage {
+  max-width: 400px;
+  margin: 15px auto 25px;
+  color: #a5aab5;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+#homeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 22px;
+  border-radius: 8px;
+  background: #b58863;
+  color: #171a21;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+#homeButton:hover {
+  background: #d0a078;
+  transform: translateY(-2px);
+}
+
+#homeButton:focus-visible {
+  outline: 3px solid #f0d9b5;
+  outline-offset: 4px;
+}
+
+@media (max-width: 480px) {
+  #errorContainer {
+      padding: 35px 20px;
+  }
+
+  #chessIcon {
+      font-size: 60px;
+  }
+}

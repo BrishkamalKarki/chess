@@ -17,5 +17,10 @@
   "bugs": {
     "url": "https://github.com/BrishkamalKarki/Chess/issues"
   },
-  "homepage": "https://github.com/BrishkamalKarki/Chess#readme"
+  "homepage": "https://github.com/BrishkamalKarki/Chess#readme",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
+  }
 }
