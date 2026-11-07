@@ -78,9 +78,10 @@ option:checked{
 }
 
 #stepper{
+  flex-wrap: nowrap;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   color: white;
   flex-wrap: wrap;
   justify-content: center;
@@ -124,7 +125,7 @@ option:checked{
   transition: transform .3s;
 }
 
-#stepBtn{
+.stepBtn{
   width: 40px;
   height: 40px;
   font-size: 1.5rem;
@@ -138,17 +139,17 @@ option:checked{
   transition: color .15s, border-color .15s, transform .15s;
 }
 
-#stepBtn:hover{
+.stepBtn:hover{
   color: #acc689;
   border-color: #acc689;
 }
 
-#stepBtn:active{
+.stepBtn:active{
   transform: scale(.95);
 }
 
 #timeValue{
-  min-width: 3ch;
+  min-width: 2ch;
   text-align: center;
   font-size: 1.4rem;
   font-weight: bold;
@@ -183,7 +184,7 @@ option:checked{
   transform: scale(.97);
 }
 
-select:focus-visible, #stepBtn:focus-visible, #play:focus-visible{
+select:focus-visible, .stepBtn:focus-visible, #play:focus-visible{
   outline: none;
   outline-offset: 3px;
 }

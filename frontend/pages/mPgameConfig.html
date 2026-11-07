@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Brishkamal">
+    <meta name="description" content="Play Chess">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Chess Config</title>
+    <link rel="stylesheet" href="../styles/gameConfig.css">
+  </head>
+  <body>
+    <div id="optionHolder">
+      <label for="playAs">Play As</label>
+      <select id="playAs">
+        <option value="white">White</option>
+        <option value="black">Black</option>
+      </select>
+      <div id="stepper">
+        <input type="checkbox" id="timer">
+        <label>Game Time:</label>
+        <button type="button" class="stepBtn" id="dec">−</button>
+        <span id="timeValue">10</span>
+        <button type="button" class="stepBtn" id="inc">+</button>
+        <span id="unit">min</span>
+      </div>   
+      <button id="play" type="button">PLAY</button>
+    </div>
+    <script src="../js/dom/configPage.js" type="module"></script>
+  </body>
+  
+</html>

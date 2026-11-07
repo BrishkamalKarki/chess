@@ -1,5 +1,69 @@
+:root{
+  --pad: 16px;
+  --panel-w: clamp(160px, 20vw, 260px);
+  --panel-h: 72px;
+  --frame: 10px; 
+}
+
+html{
+  height: 100%;
+}
+
+body{
+  margin: 0;
+  background-color: #1a1a1a;
+  background-size: cover;
+  background-position: center;
+  font-family: sans-serif;
+}
+
+#container{
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  border: 1px solid white;
+  display: flex;
+  padding: var(--pad);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;  
+  gap: var(--pad);
+  --chessBoard: min(800px, 100dvh - 2*var(--pad) - 2*var(--frame), 100vw - 2*var(--panel-w) - 4*var(--pad) - 2*var(--frame));
+}
+
+#info1, #info2{
+  border: 1px solid white;
+  box-sizing: border-box;
+  height: calc(var(--chessBoard) + 2*var(--frame));
+  width: calc(var(--chessBoard) + 2*var(--frame));
+  padding: 12px;
+  overflow: auto;
+  color: white;
+  background-color: rgba(0,0,0,.55);
+  border-radius: 10px;
+}
+
+#chessBorder{
+  padding: 0px;
+  border: var(--frame) solid white;
+  border-radius: 10px;
+}
+
 #chessBoard{
-  width: 800px;
-  height: 800px;
-  background-color: white;
+  width: var(--chessBoard);
+  height: var(--chessBoard);
+  display: block;
+  touch-action: none;
+}
+
+@media (orientation: portrait){
+  #container{
+    flex-direction: column;
+    --chessBoard: min(800px, 100vw - 2*var(--pad) - 2*var(--frame), 100dvh - 2*var(--panel-h) - 4*var(--pad) - 2*var(--frame));
+  }
+
+  #info1, #info2{
+    width: var(--board);
+    height: var(--panel-h);
+  }  
 }

@@ -46,6 +46,6 @@ const server = http.createServer(async (req, res)=>{
   }
 });
 
-server.listen(8000, ()=>{
+server.listen(8000, '0.0.0.0', ()=>{
   console.log('Connected on port: 8000');
-});
+}); 
