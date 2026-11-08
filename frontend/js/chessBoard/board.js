@@ -2,6 +2,7 @@ import GameState from './gameState.js'
 import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
+import {validateMoveAt} from '../engine/movesValidator.js'
 
 const canvas = document.getElementById("chessBoard");
 const ctx = canvas.getContext('2d');
@@ -231,6 +232,13 @@ canvas.addEventListener('pointerdown', (event)=>{
       if (playedAs == sq.pieceClr){
         clickedSrc = sq.sqNo;
         sq.drawBorder(2, 'yellow', false, true);
+        const possibleSqs = validateMoveAt(clickedSrc, gameState);
+        for (const sq of chessPieces.squares){
+          for (const pos of possibleSqs){
+            if (sq.sqNo == pos)
+              sq.drawBorder(2, 'yellow', false, false);
+          }
+        }
         break;
       }
     }
@@ -313,6 +321,8 @@ function updateBitAfterMove(src, des){
     else if (isPiece(gameState.BLACK_QUEEN, des))
       gameState.BLACK_QUEEN = replaceBit(gameState.BLACK_QUEEN, des, 0);
     gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+
+    gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
   }
   else if(isPiece(gameState.BLACK_PLACEMENTS, src)){
     // replacing the src bit by 0 and des by 1 on our side
@@ -356,8 +366,10 @@ function updateBitAfterMove(src, des){
     else if (isPiece(gameState.WHITE_QUEEN, des))
       gameState.WHITE_QUEEN = replaceBit(gameState.WHITE_QUEEN, des, 0);
 
-      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
-    }
+    gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+    
+    gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+  }
 };
 
 function animate(timestamp){ // animating the piece move
