@@ -1,8 +1,10 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
-import path, { matchesGlob } from 'node:path';
+import path from 'node:path';
 import dotenv from 'dotenv';
 import {Server} from 'socket.io';
+
+import {registerSocketEvents} from  './socket/socket.js';
 
 import getMimeType from './utils/getMimeType.js';
 
@@ -30,28 +32,25 @@ const httpServer = http.createServer(async (req, res)=>{
   
     res.writeHead(200, {'Content-Type': mimeType});
     res.end(file);
+    return;
   }
   catch(err){
     if (err.code == 'ENOENT'){
       res.writeHead(404);
       const file404  = await readFile('frontend/pages/404.html');
       res.end(file404);
+      return;
     }
     res.writeHead(404);
     res.end(err.message);
   }
 });
 
-const io = new Server(httpServer)
+const io = new Server(httpServer);
 
-io.on('connection', async (socket) => {
-  socket.on('room create id', (id)=>{
-    console.log(id)
-  })
-});
+registerSocketEvents(io);
 
 httpServer.listen(8000, '0.0.0.0', ()=>{
   console.log('Connected on port: 8000');
 }); 
 
-export default io;

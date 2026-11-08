@@ -1,16 +1,41 @@
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
+import socket from '../socket/socket.js'
 
-document.getElementById("play")?.addEventListener('click', ()=>{
+let roomCreateId, roomJoinId, userId;
+
+if (sessionStorage.getItem('gameMode') == 'multiPlayer'){
+  roomCreateId = sessionStorage.getItem('roomCreateId');
+  sessionStorage.removeItem('roomCreateId');
+  roomJoinId = sessionStorage.getItem('roomJoinId');
+  sessionStorage.removeItem('roomJoinId');
+  userId = sessionStorage.getItem('userId');
+  sessionStorage.removeItem('userId');
+}
+
+document.getElementById("play")?.addEventListener('click', async ()=>{
   const gameMode = sessionStorage.getItem('gameMode');
-  if (gameMode === 'singlePlayer'){
-    const playedAs = document.getElementById("playAs").value;
-    sessionStorage.setItem('playedAs', `${playedAs}`);
-    const botDiff = document.getElementById("botDiff").value;
+  const playedAs = document.getElementById("playAs").value;
+  const botDiff = document.getElementById("botDiff")?.value;
+  const timerOn = document.getElementById("timer").checked;
+  const gameTime = document.getElementById("timeValue").textContent;
+  if (botDiff != undefined)
     sessionStorage.setItem('botDiff', `${botDiff}`);
-    const timerOn = document.getElementById("timer").checked;
-    sessionStorage.setItem('timerOn', `${timerOn}`);
-    const gameTime = document.getElementById("timeValue").textContent;
-    sessionStorage.setItem('gameTime', `${gameTime}`);
+  sessionStorage.setItem('gameTime', `${gameTime}`);
+  sessionStorage.setItem('timerOn', `${timerOn}`);
+  sessionStorage.setItem('playedAs', `${playedAs}`);
+  console.log(gameMode)
+  if (gameMode == 'multiPlayer'){
+    const responce = await socket.timeout(5000).emitWithAck('save settings', roomCreateId || roomJoinId, userId, timerOn, playedAs, gameTime);
+      if (responce.success){
+        sessionStorage.setItem('roomCreateId', roomCreateId);
+        sessionStorage.setItem('roomJoinId', roomJoinId);
+        sessionStorage.setItem('userId', userId);
+        navigateTo(pagesRoutes.arena);
+      }else{
+        console.log(responce.message);
+      }
+  }
+  else{
     navigateTo(pagesRoutes.arena);
   }
 });

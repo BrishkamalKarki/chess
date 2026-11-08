@@ -6,6 +6,7 @@ document.getElementById("singleP")?.addEventListener('click', ()=>{
 }); 
 
 document.getElementById("multiP")?.addEventListener('click', ()=>{
+  sessionStorage.setItem('gameMode', 'multiPlayer');
   navigateTo(pagesRoutes.msPL);
 });
 

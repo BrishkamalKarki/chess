@@ -1,6 +1,7 @@
 import GameState from './gameState.js'
 import {getChessPieces} from './resourceLoader.js'
-import gameVars from './gameVars.js'
+import socket from '../socket/socket.js';
+import {getGameVars} from './gameVars.js'
 
 const canvas = document.getElementById("chessBoard");
 const ctx = canvas.getContext('2d');
@@ -16,8 +17,9 @@ let mouseCoord = []; // keeping track of mouse coord
 let clickedSrc = null;
 let clickedDes = null;
 let animationOn = false;
-const {gameMode, playedAs, timerOn, botDiff, gameTime} = gameVars;
+const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId} = await getGameVars();
 
+console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, userId)
 class ChessBoard{
   constructor(){
     this.whiteHex = '#77b8b2';
@@ -28,12 +30,6 @@ class ChessBoard{
     const boardSize = canvas.height;
     this.sqSize = boardSize/8;
     this.iniSqCord = this.sqSize/2; // 1st square center (x=y)
-    const boardDms = {
-      board: {
-        boardSize: canvas.height,
-        squareSize: canvas.height/8
-      }
-    }
     this.sqCtrCoords = []; // storing the center coordinates of squares
     this.sqStCords = []; // storing the top left coordinates of squares
     for (let row = 0; row < 8; row++){
@@ -95,7 +91,7 @@ class ChessPieces{
 
     this.sqStCordsCp = this.board.sqStCords; 
     let sqNo = 0;
-    if (gameVars.playedAs == 'white'){
+    if (playedAs == 'white'){
       for (let row = 7; row >= 0; row--){
         for (let col = 0; col <= 7; col++){
           const sq = new Square(this.sqStCordsCp[row*8+col][0], this.sqStCordsCp[row*8+col][1], board.sqSize, board.sqSize, sqNo++, row*8+col);
@@ -111,7 +107,7 @@ class ChessPieces{
         }
       }
     }
-    if (gameVars.playedAs == 'white') this.squares.reverse();
+    if (playedAs == 'white') this.squares.reverse();
   }
   updatePieceToBB(){
     this.pieceToBitBoard = { // mapping the pieces names with their respective bitmaps to finish the work in only single loop while drawing
@@ -125,7 +121,7 @@ class ChessPieces{
   getIndex(i){
     let row = Math.floor(i/8);
     let col = i - row * 8;
-    if (gameVars.playedAs == 'black') return (row*8+(7-col));
+    if (playedAs == 'black') return (row*8+(7-col));
     else return ((7-row)*8+col);
   }
 
@@ -226,13 +222,13 @@ canvas.addEventListener('pointerdown', (event)=>{
   chessPieces.updateSquaresInfo();
   for (const sq of chessPieces.squares){
     if (sq.contains((event.clientX - rect.left) * canvas.width  / rect.width, (event.clientY - rect.top)* canvas.height / rect.height)){
-      if (clickedSrc != null && (gameVars.playedAs != sq.pieceClr)){
+      if (clickedSrc != null && (playedAs != sq.pieceClr)){
         clickedDes = sq.sqNo;
         sq.drawBorder(2, 'yellow', true, false);
         break;
       }
 
-      if (gameVars.playedAs == sq.pieceClr){
+      if (playedAs == sq.pieceClr){
         clickedSrc = sq.sqNo;
         sq.drawBorder(2, 'yellow', false, true);
         break;

@@ -1,12 +1,11 @@
 import socket from '../socket/socket.js'
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
-document.getElementById("createRoom")?.addEventListener('click', ()=>{
+document.getElementById("createRoom")?.addEventListener('click', async ()=>{
   const id = document.getElementById('roomIdMaker').value;
-  sessionStorage.setItem('roomCreateId', ``);
   if (!id){
     document.getElementById('roomIdMaker').value = "";
-    roomIdMaker.placeholder = 'FIELD EMPTY!';
+    roomIdMaker.placeholder = 'FIELD EMPTY';
     return;
   }
   if (Number.isNaN(Number(id))){
@@ -21,23 +20,28 @@ document.getElementById("createRoom")?.addEventListener('click', ()=>{
       roomIdMaker.placeholder = 'ONLY 4 DIGITS ALLOWED';
       return;
     }
-  
-    document.getElementById('roomIdMaker').value = "";
-    roomIdMaker.placeholder = '';
-    sessionStorage.setItem('roomCreateId', `${id}`);
 
-    socket.emit('room create id', id);
-    navigateTo(pagesRoutes.mPgameConfig);
-  }
+    // sending the room id through socket
+    const responce = await socket.timeout(5000).emitWithAck('room create id', id, sessionStorage.getItem('gameMode'));
+      if (responce.success){
+        roomIdMaker.placeholder = '';
+        sessionStorage.setItem('roomCreateId', id);
+        sessionStorage.setItem('userId', responce.userId);
+        navigateTo(pagesRoutes.mPgameConfig);
+      }
+      else{
+        document.getElementById('roomIdMaker').value = "";
+        roomIdMaker.placeholder = responce.message;
+      }
+    }
 });
 
-document.getElementById("joinRoom")?.addEventListener('click', ()=>{
+document.getElementById("joinRoom")?.addEventListener('click',async ()=>{
   const id = document.getElementById('roomIdHolder').value;
   
-  sessionStorage.setItem('roomJoinId', ``);
   if (!id){
     document.getElementById('roomIdHolder').value = "";
-    roomIdHolder.placeholder = 'FIELD EMPTY!';
+    roomIdHolder.placeholder = 'FIELD EMPTY';
     return;
   }
   if (Number.isNaN(Number(id))){
@@ -53,10 +57,18 @@ document.getElementById("joinRoom")?.addEventListener('click', ()=>{
       return;
     }
   
-  document.getElementById('roomIdHolder').value = "";
-  roomIdHolder.placeholder = '';
-  sessionStorage.setItem('roomJoinId', `${id}`);
-  socket.emit('room create id', id);
-  navigateTo(pagesRoutes.mPgameConfig);
+  // sending the room id through socket
+    const responce = await socket.timeout(5000).emitWithAck('room join id', id, sessionStorage.getItem('gameMode'));
+      if (responce.success){
+        document.getElementById('roomIdHolder').value = "";
+        roomIdHolder.placeholder = '';
+        sessionStorage.setItem('roomJoinId', id);
+        sessionStorage.setItem('userId', responce.userId);
+        navigateTo(pagesRoutes.arena);
+      }
+      else{
+        document.getElementById('roomIdHolder').value = "";
+        roomIdHolder.placeholder = responce.message;
+      }
   }
 });
