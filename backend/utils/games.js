@@ -1,0 +1,3 @@
+let stateToRoom = {};
+
+export {stateToRoom};

@@ -30,6 +30,7 @@ document.getElementById("play")?.addEventListener('click', async ()=>{
         sessionStorage.setItem('roomCreateId', roomCreateId);
         sessionStorage.setItem('roomJoinId', roomJoinId);
         sessionStorage.setItem('userId', userId);
+        sessionStorage.setItem('room', responce.room);
         navigateTo(pagesRoutes.arena);
       }else{
         console.log(responce.message);

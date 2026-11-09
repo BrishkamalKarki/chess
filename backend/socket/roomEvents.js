@@ -15,10 +15,12 @@ export function registerRoomEvents(io, socket){
     else{
       const resp = roomService(id, gameMode, true);
       if (resp.success){
+        socket.join(id);
         rooms.set(id,
           {
             player1: resp.userId,
-            players: 1
+            players: 1,
+            roomReady: false
           }
         );
 
@@ -27,24 +29,40 @@ export function registerRoomEvents(io, socket){
             rooms.delete(id);
         }, 60000*5) // created room will be alive only for 5 mins
       }
-      console.log(rooms) 
       return callback(resp);
     }
   })
 
   socket.on('room join id', (id, gameMode, callback)=>{
     if (rooms.has(id)){ 
+      if (rooms.get(id).players == 2){
+        return callback(
+          {
+            success: false,
+            message: 'ROOM FULL'
+          }
+        )
+      }
+      if (!rooms.get(id).roomReady){
+        return callback(
+          {
+            success: false,
+            message: 'ID DONOT EXISTS'
+          }
+        )
+      }
       const resp = roomService(id, gameMode, false);
       if (resp.success){
+        socket.join(id);
         rooms.get(id).player2 = resp.userId;
         rooms.get(id).players = 2
+        rooms.get(id).gameOn = true;
       }
-      console.log(rooms)
       return callback(resp);
     }
     else{
       return callback(
-        {
+        { 
           success: false,
           message: 'ID DONOT EXISTS'
         }

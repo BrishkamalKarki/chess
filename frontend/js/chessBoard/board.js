@@ -3,6 +3,7 @@ import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
 import {validateMoveAt} from '../engine/movesValidator.js'
+import { io } from 'socket.io-client';
 
 const canvas = document.getElementById("chessBoard");
 const ctx = canvas.getContext('2d');
@@ -18,9 +19,66 @@ let mouseCoord = []; // keeping track of mouse coord
 let clickedSrc = null;
 let clickedDes = null;
 let animationOn = false;
-const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId} = await getGameVars();
+const gameVars = await getGameVars();
+const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, room} = gameVars;
 
-console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, userId)
+console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, userId, room)
+
+
+let whiteMin, blackMin, whiteSec, blackSec, whiteTimeOut = false, blackTimeOut = false, st = false, sT;
+socket.on('start time', (serverTime)=>{
+  console.log(serverTime, " is the server time")
+  sT = serverTime;
+  st = true;
+});
+
+if (room != null){
+  whiteMin = room.gameTime - 1;
+  whiteSec = 60;
+  console.log(whiteTimeOut, room.turn, room.gameOn, room.timerOn)
+  if (room.timerOn){
+    setInterval(()=>{
+      if (!whiteTimeOut && room.turn == 'white' && st){
+        console.log("white running" , whiteTimeOut, room.turn, st);
+        whiteSec -= 1;
+        if (whiteSec == 0){
+          if (whiteMin == 0) whiteTimeOut = true;
+          else{
+            whiteMin -= 1;
+            whiteSec = 59;
+          }
+        }
+      }
+      if (playedAs == 'white')
+        document.getElementById("youTime").textContent = `${whiteMin}:${whiteSec}`;
+      else
+        document.getElementById("oppTime").textContent = `${whiteMin}:${whiteSec}`;
+    }, 1000);
+  }
+
+  blackMin = room.gameTime - 1;
+  blackSec = 60;
+  if (room.timerOn){
+    setInterval(()=>{
+      console.log("black running", blackTimeOut, room.turn, st);
+      if (!blackTimeOut && room.turn == 'black' && st){
+        blackSec -= 1;
+        if (blackSec == 0){
+          if (blackMin == 0) blackTimeOut = true;
+          else{
+            blackMin -= 1;
+            blackSec = 59;
+          }
+        }
+      }
+      if (playedAs == 'black')
+        document.getElementById("youTime").textContent = `${blackMin}:${blackSec}`;
+      else
+        document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
+    }, 1000);
+  }
+}
+
 class ChessBoard{
   constructor(){
     this.whiteHex = '#77b8b2';
@@ -216,7 +274,7 @@ class Square{
 };
 
 // when the user clicks a piece
-canvas.addEventListener('pointerdown', (event)=>{
+canvas.addEventListener('pointerdown', async (event)=>{
   if (animationOn) return;
   mouseClicked = true;
   const rect = canvas.getBoundingClientRect();
@@ -244,7 +302,17 @@ canvas.addEventListener('pointerdown', (event)=>{
     }
   }
   if (clickedDes != null && clickedSrc != null){
-    movePiece();
+    if (room != null){
+      const resp = await socket.timeout(2000).emitWithAck('apply move', roomJoinId || roomCreateId, userId, clickedSrc, clickedDes);
+      if (!resp.success){
+        console.log('invalid move');
+        clickedDes = null;
+        clickedSrc = null;
+      }
+    }
+    else{
+      movePiece();
+    }
   }
 });
 
@@ -373,7 +441,7 @@ function updateBitAfterMove(src, des){
 };
 
 function animate(timestamp){ // animating the piece move
-  if (frame >= 20){
+  if (frame >= 10){
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
     chessPieces.updateSquaresInfo();
@@ -389,8 +457,8 @@ function animate(timestamp){ // animating the piece move
     animationOn = false;
     return;
   }
-  mX = srcX + disX * frame / 20;
-  mY = srcY + disY * frame / 20;
+  mX = srcX + disX * frame / 10;
+  mY = srcY + disY * frame / 10;
   board.draw();
   chessPieces.drawAllPieces();
   frame++;
@@ -419,10 +487,18 @@ function movePiece(){ // calculating things for the animation
   animate();
 }
 
+socket.on('apply move', (src, des)=>{
+  clickedDes = des;
+  clickedSrc = src;
+  movePiece();
+})
+
 const pieceImg = await getChessPieces();
 const gameState = new GameState();
-const board = new ChessBoard('black');
+const board = new ChessBoard();
 board.getMesurements();
 board.draw();
 const chessPieces = new ChessPieces(board);
 chessPieces.drawAllPieces();
+
+export {gameVars};

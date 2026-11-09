@@ -11,38 +11,56 @@
   </head>
   <body>
     <div id="container">
-      <section id="info1" class="panel">
-        <div class="card">
-          <div class="who1">
-            <span id="gameMode"></span>
-            <span id="color1">You</span>
-            <span id="level" ></span>
-            <span id="timerOn"></span>
-            <span id="netTime"></span>
+      <div id="info1" class="panel">
+        <div id="dynamicOpp" class="dynamic">
+          <div id="ot">
+            <span id="oppDot"></span></span><span id="opp">OPPONENT</span>
+            <span id="oppTime"></span>
           </div>
-          <div id="clock1" >10:00</div>          
-          <span id="lead1"></span>                     
+          <span id="timerOn"></span>
+          <div id="cap">
+            <span id="oppCaptxt">CAPTURED</span>
+            <span id="oppPoint">+0</span>
+          </div>
         </div>
-      </section>
 
+        <div id="gameMoves">
+          <span id="moveTxt">Moves</span>
+          <div id="accMoves">
+            <ol class="moveList">
+            </ol>
+          </div>
+        </div>
+      </div>
+                            
       <div id="chessBorder">
         <canvas id="chessBoard">here is the chess board</canvas>
       </div>
 
-      <section id="info2" class="panel">
-        <div class="card">
-          <div class="who2">
-            <span id="gameMode"></span>
-            <span id="color2">You</span>
-            <span id="level" ></span>
-            <span id="timerOn"></span>
-            <span id="netTime"></span>
+      <div id="info2" class="panel">
+        <div id="dynamicYou" class="dynamic">
+          <div id="ot">
+            <span id="youDot"></span><span id="you">YOU</span>
+            <span id="youTime"></span>
           </div>
-          <div id="clock2" >10:00</div>          
-          <span id="lead2"></span>                     
+          <span id="timerOn"></span>
+          <div id="cap">
+            <span id="oppCaptxt">CAPTURED</span>
+            <span id="oppPoint">+0</span>
+          </div>
         </div>
-      </section>
+
+        <div id="gameStatus">
+          <div id="promotionOption"></div>
+          <div id="gameOption">
+            <button id="resign">Resign</button>
+            <button id="draw">Draw</button>
+            <button id="backToMenu">Back to Menu</button>
+          </div>
+        </div>
+      </div>
     </div>
+    <script src="../js/dom/arena.js" type="module"></script> 
     <script src="/socket.io/socket.io.js"></script>
     <script src="../js/chessBoard/board.js" type="module"></script>
   </body>

@@ -1,6 +1,8 @@
 import socket from '../socket/socket.js';
 
 let playedAs, gameMode, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId;
+let timeOutOpp = false, timeOutMine = false;
+let room;
 
 export async function getGameVars(){
   if (sessionStorage.getItem('gameMode') == 'singlePlayer'){
@@ -31,6 +33,7 @@ export async function getGameVars(){
       gameTime = responce.gameTime;
       timerOn = responce.timerOn;
       playedAs = responce.playedAs;
+      room = responce.room;
       console.log(responce.message);
     }
     else{
@@ -46,6 +49,9 @@ export async function getGameVars(){
     gameTime: gameTime,
     roomCreateId: roomCreateId,
     roomJoinId: roomJoinId,
-    userId: userId
+    userId: userId,
+    timeOutOpp: timeOutOpp,
+    timeOutMine: timeOutMine,
+    room: room
   }
 }

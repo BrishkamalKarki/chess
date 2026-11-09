@@ -1,3 +1,5 @@
+import { checkCheck } from "./analyseBoard.js";
+
 let gameState, pieceToBitBoard;
 
 function validateMoveAt(pos, gs){
@@ -19,6 +21,7 @@ function validateMoveAt(pos, gs){
   const row = Math.floor(pos/8);
   const col = pos - row*8;
   const psblPaths = pieceToFunc[piece](row, col, pos, piece[0]);
+  const checkSqs = checkCheck(pos, psblPaths, piece, gs);
   console.log(psblPaths, ' are possible Paths');
   return psblPaths;
 }

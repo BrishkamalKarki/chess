@@ -1,7 +1,10 @@
-import { populate } from "dotenv";
 import {rooms, roomService} from "../utils/rooms.js";
+import GameState from "../chess/gameState.js";
+import { Timer } from "../chess/timer.js";
+import { stateToRoom } from "../utils/games.js";
 
-export function registerSettingEvents(io, socket){
+let gameState, timer;
+function registerSettingEvents(io, socket){
   // saving the passed variables
   socket.on('save settings', (roomId, userId, timerOn, playedAs, gameTime, callback)=>{
     let room = rooms.get(roomId);
@@ -17,6 +20,14 @@ export function registerSettingEvents(io, socket){
         room.gameTime = gameTime;
         room.player1PlayedAs = playedAs;
         room.player2PlayedAs = (playedAs == 'white')? 'black' : 'white';
+        room.turn = 'white';
+        room.player1online = true;
+        room.player2online = false;
+        room.player2joined = false;
+        rooms.get(roomId).roomReady = true;
+        rooms.get(roomId).gameOn = false;
+        console.log(rooms)
+        socket.join(roomId);
         return callback({
           success: true,
           message: 'SUCCEFULLY SAVED GAME SETTINGS'
@@ -32,7 +43,6 @@ export function registerSettingEvents(io, socket){
   });
 
   socket.on('get settings', (roomId, userId, callback)=>{
-    console.log(roomId, userId)
     let room = rooms.get(roomId);
     if (rooms.has(roomId)){
       let playedAs;
@@ -41,12 +51,25 @@ export function registerSettingEvents(io, socket){
       else
         playedAs = room.player2PlayedAs;
 
+      if (room.gameOn){ 
+        room.player2online = true;
+        room.player2joined = true;
+        gameState = new GameState(roomId);
+        timer = new Timer(gameState);
+        timer.startTimer();
+        stateToRoom.room = {gameState: gameState, timer: timer};
+        io.sockets.in(roomId).emit('start time', timer.getTime());
+      }
+
+      console.log(rooms)
+      socket.join(roomId);
       return callback({
         success: true,
         message: 'SUCCEFULLY PASSED GAME SETTINGS',
         timerOn: room.timerOn,
         gameTime: room.gameTime,
-        playedAs: playedAs
+        playedAs: playedAs,
+        room: room
       })
     }
     else{
@@ -57,3 +80,5 @@ export function registerSettingEvents(io, socket){
     }
   });
 };
+
+export {registerSettingEvents, gameState};

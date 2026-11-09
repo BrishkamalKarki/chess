@@ -11,7 +11,7 @@ html{
 
 body{
   margin: 0;
-  background-color: #1a1a1a;
+  background-color: #776246;
   background-size: cover;
   background-position: center;
   font-family: sans-serif;
@@ -21,7 +21,6 @@ body{
   min-height: 100vh;
   min-height: 100dvh;
   box-sizing: border-box;
-  border: 1px solid white;
   display: flex;
   padding: var(--pad);
   flex-direction: row;
@@ -32,15 +31,10 @@ body{
 }
 
 #info1, #info2{
-  border: 1px solid white;
+  border: none;
   box-sizing: border-box;
-  height: calc(var(--chessBoard) + 2*var(--frame));
-  width: calc(var(--chessBoard) + 2*var(--frame));
   padding: 12px;
-  overflow: auto;
   color: white;
-  background-color: rgba(0,0,0,.55);
-  border-radius: 10px;
 }
 
 #chessBorder{
@@ -62,8 +56,187 @@ body{
     --chessBoard: min(800px, 100vw - 2*var(--pad) - 2*var(--frame), 100dvh - 2*var(--panel-h) - 4*var(--pad) - 2*var(--frame));
   }
 
-  #info1, #info2{
-    width: var(--board);
-    height: var(--panel-h);
-  }  
 }
+
+.panel{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #e9efed;
+}
+
+.dynamic{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: #5b6a66;
+  border-radius: 14px;
+}
+
+#opp, #you{
+  font-size: 22px;
+  font-weight: bold;
+}
+
+#ot{
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 20px;
+}
+
+#oppTime, #youTime, #oppTimerOn, #youTimerOn{
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;   /* keep the same width of all the digits */
+}
+
+#cap{
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+#oppCaptxt, #youCaptxt{
+  font-size: 13px;
+  letter-spacing: .08em;
+  font-weight: 700;
+  color: grey;
+}
+
+#oppPoint, #youPoint{
+  font-size: 20px;
+  font-weight: 700;
+}
+
+#gameMoves{
+  height: auto;
+}
+
+#gameMoves, #gameStatus{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgb(62, 61, 61);
+  border-radius: 14px;
+}
+
+#moveTxt, #statusTxt{
+  color: white; 
+  display: block;
+  font-size: 12px;
+  letter-spacing: .08em;
+}
+
+.list::-webkit-scrollbar {
+  display: none;      
+}
+
+#accMoves{
+  scrollbar-width: none;
+  min-height: 50px;
+  max-height: 100px;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  overflow-y: auto;    
+}
+
+.moveList{
+  list-style: none;
+  counter-reset: moves;
+  padding-left: 0;
+}
+
+.moveList li{
+  counter-increment: moves;
+  display: grid;
+  grid-template-columns: 20px 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 18px;
+}
+
+.moveList li::before{
+  content: counter(moves) ".";
+  color: gray;
+  font-size: 14px;
+}
+
+.moveList li:last-child{  
+  border-radius: 10px;
+  background: rgba(115, 150, 68, 0.18);
+  font-weight: 600;
+}
+
+ol li::marker{
+  color: gray;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+#youDot, #oppDot{
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: grey;
+}
+
+#gameOption{
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#resign, #draw, #backToMenu{
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #5b6a66;
+  background: transparent;
+  color: #e9efed;
+  font: 600 15px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background-color .15s, transform .15s;
+}
+
+#draw{
+  border-color: aqua;
+}
+
+#resign{
+  border-color: red;
+  color: #f1b0a5;
+}
+
+#backToMenu{
+  border-color: rgb(17, 255, 0);
+}
+
+#resign:hover{
+  background: rgba(75, 31, 25, 0.844);
+}
+
+#draw:hover{
+  background: rgba(20, 85, 142, 0.844);
+}
+
+#backToMenu:hover{
+  background: rgba(13, 71, 5, 0.844);
+}
+
+#resign:active, #draw:active, #backToMenu:active{
+  transform: scale(.97);
+}
+
+

@@ -27,13 +27,6 @@
 
       this.CLICKED = 0b0n;
       this.BLACK_WHITE = this.BLACK_PLACEMENTS | this.WHITE_PLACEMENTS;
-      // this.BW_BISHOP = this.BLACK_BISHOPS | this.WHITE_BISHOPS;
-      // this.BW_KNIGHTS = this.BLACK_KNIGHTS | this.WHITE_KNIGHTS;
-      // this.BW_ROOKS = this.BLACK_ROOKS | this.WHITE_ROOKS;
-      // this.BW_ = this.BLACK_BISHOPS | this.WHITE_BISHOPS;
-      // this.BW_BISHOP = this.BLACK_BISHOPS | this.WHITE_BISHOPS;
-      // this.BW_BISHOP = this.BLACK_BISHOPS | this.WHITE_BISHOPS;
-      // this.BW_BISHOP = this.BLACK_BISHOPS | this.WHITE_BISHOPS;
     }
   }
 
