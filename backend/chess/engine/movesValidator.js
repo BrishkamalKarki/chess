@@ -163,6 +163,9 @@ function checkStaleMate(gameState ,room){
   }
 
   const isCheck = kingChecked(room);
+  const allPiecesMoves = getAllMoves(room.turn);
+  if (!isCheck && allPiecesMoves.length == 0)
+    return true;
 }
 
 function checkCheckMate(gameState, room){
@@ -175,13 +178,42 @@ function checkCheckMate(gameState, room){
   }
 
   const isCheck = kingChecked(room);
+  if (!isCheck) return false;
+
   const turn = room.turn == 'white' ? 'w' : 'b';
   const kingPos = getPos(pieceToBitBoard[`${turn}K`]); // king of the  of the current turn
-  let row = Math.floor(kingPos/8);
-  let col = kingPos - row * 8;
-  const kingMoves = forKing(room, col, kingPos, turn);
-  if (isCheck && kingMoves.length == 0)
-    return true;
+  let row = Math.floor(kingPos[0]/8);
+  let col = kingPos[0] - row * 8;
+  const kingMoves = forKing(row, col, kingPos[0], turn);
+  if (kingMoves.length != 0) return false;
+
+  // if any piece can black the check
+  const allPiecesMoves = getAllMoves(room.turn);
+  if (allPiecesMoves.length == 0) return true;
+  
+  let blockMove = [];
+  const p = room.turn == 'white' ? 'w' : 'b';
+  const ttlPieces = [`${piece}P`, `${piece}R`, `${piece}N`, `${piece}B`, `${piece}Q`, `${piece}K`]
+  for (const pc of ttlPieces){
+    const posAll = getPos(pieceToBitBoard[pc]);
+    for (const pos in posAll){
+      const bBorg = pieceToBitBoard[pc]; // saving org board state
+      const desPiece = whatIsAt(des);
+      let bBorgEn;
+      if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece];
+      pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
+      pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], des, 1);
+      if (desPiece != ' ')
+        pieceToBitBoard[desPiece] = replaceBit(pieceToBitBoard[desPiece], des, 0);
+
+      const stillChecked = kingChecked(room)
+      if (!stillChecked) return false;
+      pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
+      if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
+    }
+  }
+
+  return true;
 }
 
 function getPos(bB){
@@ -193,12 +225,12 @@ function getPos(bB){
 }
 
 function getAllMoves(turn){
-  const piece = turn == white ? 'w' : 'b';
+  const piece = turn == 'white' ? 'w' : 'b';
 
   const ttlPieces = [`${piece}P`, `${piece}R`, `${piece}N`, `${piece}B`, `${piece}Q`, `${piece}K`]
   let ttlPos = [];
   for (const tp of ttlPieces){
-    const indvPos = getPos(tp);
+    const indvPos = getPos(pieceToBitBoard[tp]);
     ttlPos = [...ttlPos, ...indvPos];
   }
 
@@ -210,12 +242,12 @@ function getAllMoves(turn){
   }
 
   let moves = []; 
-  for (const pos in ttlPos){
+  for (const pos of ttlPos){
     const row = Math.floor(pos/8);
     const col = pos - row * 8;
     const p = whatIsAt(pos);
     const move = pieceToFunc[p](row, col, pos, piece);
-    moves = [...moves, move];
+    moves = [...moves, ...move];
   }
 
   return moves;
