@@ -17,7 +17,8 @@ export function registerRoomEvents(io, socket){
       if (resp.success){
         socket.join(id);
         rooms.set(id,
-          {
+          { 
+            id: id,
             player1: resp.userId,
             players: 1,
             roomReady: false

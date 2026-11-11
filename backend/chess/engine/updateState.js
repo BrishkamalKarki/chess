@@ -5,6 +5,9 @@ function replaceBit(of, at, by){
     return ((of & ~(BigInt(1) << BigInt(at))));
 }
 
+function isPiece(of, at){
+  return ((of >> BigInt(at)) & 1n);
+}
 
 function updateBitAfterMove(src, des, gameState){
   const bit = [0, 1];
@@ -35,8 +38,9 @@ function updateBitAfterMove(src, des, gameState){
       gameState.WHITE_QUEEN = replaceBit(gameState.WHITE_QUEEN, src, 0);
       gameState.WHITE_QUEEN = replaceBit(gameState.WHITE_QUEEN, des, 1);
     }
-  
-    gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+    
+    
+      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
 
     // replacing the src bit by 0 and des by 0 on opponent side
     if (isPiece(gameState.BLACK_BISHOPS, des))
@@ -51,9 +55,10 @@ function updateBitAfterMove(src, des, gameState){
       gameState.BLACK_ROOKS = replaceBit(gameState.BLACK_ROOKS, des, 0);
     else if (isPiece(gameState.BLACK_QUEEN, des))
       gameState.BLACK_QUEEN = replaceBit(gameState.BLACK_QUEEN, des, 0);
-    gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
-
-    gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+    
+      gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+      
+      gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
   }
   else if(isPiece(gameState.BLACK_PLACEMENTS, src)){
     // replacing the src bit by 0 and des by 1 on our side
@@ -81,8 +86,8 @@ function updateBitAfterMove(src, des, gameState){
       gameState.BLACK_QUEEN = replaceBit(gameState.BLACK_QUEEN, src, 0);
       gameState.BLACK_QUEEN = replaceBit(gameState.BLACK_QUEEN, des, 1);
     }
-
-    gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+    
+      gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
 
     if (isPiece(gameState.WHITE_BISHOPS, des))
       gameState.WHITE_BISHOPS = replaceBit(gameState.WHITE_BISHOPS, des, 0);
@@ -97,9 +102,11 @@ function updateBitAfterMove(src, des, gameState){
     else if (isPiece(gameState.WHITE_QUEEN, des))
       gameState.WHITE_QUEEN = replaceBit(gameState.WHITE_QUEEN, des, 0);
 
-    gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
     
-    gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+    
+      
+      gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
   }
 };
 

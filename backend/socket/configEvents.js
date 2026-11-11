@@ -57,7 +57,8 @@ function registerSettingEvents(io, socket){
         gameState = new GameState(roomId);
         timer = new Timer(gameState);
         timer.startTimer();
-        stateToRoom.room = {gameState: gameState, timer: timer};
+        // room.gameState = gameState;
+        stateToRoom[`${roomId}`] = {gameState: gameState, timer: timer};
         io.sockets.in(roomId).emit('start time', timer.getTime());
       }
 

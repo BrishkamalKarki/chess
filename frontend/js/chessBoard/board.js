@@ -3,7 +3,7 @@ import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
 import {validateMoveAt} from '../engine/movesValidator.js'
-import { io } from 'socket.io-client';
+import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
 const canvas = document.getElementById("chessBoard");
 const ctx = canvas.getContext('2d');
@@ -14,6 +14,7 @@ const pxCanvas = Math.floor((canvas.clientWidth * (window.devicePixelRatio || 1)
 canvas.height = pxCanvas;
 canvas.width = pxCanvas;
 
+
 let mouseClicked = false;
 let mouseCoord = []; // keeping track of mouse coord
 let clickedSrc = null;
@@ -21,13 +22,12 @@ let clickedDes = null;
 let animationOn = false;
 const gameVars = await getGameVars();
 const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, room} = gameVars;
-
-console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, userId, room)
+let turn = 'white';
+console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId, room)
 
 
 let whiteMin, blackMin, whiteSec, blackSec, whiteTimeOut = false, blackTimeOut = false, st = false, sT;
 socket.on('start time', (serverTime)=>{
-  console.log(serverTime, " is the server time")
   sT = serverTime;
   st = true;
 });
@@ -35,11 +35,9 @@ socket.on('start time', (serverTime)=>{
 if (room != null){
   whiteMin = room.gameTime - 1;
   whiteSec = 60;
-  console.log(whiteTimeOut, room.turn, room.gameOn, room.timerOn)
   if (room.timerOn){
     setInterval(()=>{
       if (!whiteTimeOut && room.turn == 'white' && st){
-        console.log("white running" , whiteTimeOut, room.turn, st);
         whiteSec -= 1;
         if (whiteSec == 0){
           if (whiteMin == 0) whiteTimeOut = true;
@@ -60,7 +58,6 @@ if (room != null){
   blackSec = 60;
   if (room.timerOn){
     setInterval(()=>{
-      console.log("black running", blackTimeOut, room.turn, st);
       if (!blackTimeOut && room.turn == 'black' && st){
         blackSec -= 1;
         if (blackSec == 0){
@@ -282,12 +279,16 @@ canvas.addEventListener('pointerdown', async (event)=>{
   for (const sq of chessPieces.squares){
     if (sq.contains((event.clientX - rect.left) * canvas.width  / rect.width, (event.clientY - rect.top)* canvas.height / rect.height)){
       if (clickedSrc != null && (playedAs != sq.pieceClr)){
-        clickedDes = sq.sqNo;
-        sq.drawBorder(2, 'yellow', true, false);
-        break;
+          clickedDes = sq.sqNo;
+          sq.drawBorder(2, 'yellow', true, false);
+          break;
       }
 
       if (playedAs == sq.pieceClr){
+        if (room != null){
+          console.log(playedAs)
+          if (turn != playedAs) return;
+        }
         clickedSrc = sq.sqNo;
         sq.drawBorder(2, 'yellow', false, true);
         const possibleSqs = validateMoveAt(clickedSrc, gameState);
@@ -302,8 +303,8 @@ canvas.addEventListener('pointerdown', async (event)=>{
     }
   }
   if (clickedDes != null && clickedSrc != null){
-    if (room != null){
-      const resp = await socket.timeout(2000).emitWithAck('apply move', roomJoinId || roomCreateId, userId, clickedSrc, clickedDes);
+    if (room != null){ // if online then ask for the server for the valid moves
+      const resp = await socket.timeout(2000).emitWithAck('apply move', room.id, userId, clickedSrc, clickedDes);
       if (!resp.success){
         console.log('invalid move');
         clickedDes = null;
@@ -312,6 +313,7 @@ canvas.addEventListener('pointerdown', async (event)=>{
     }
     else{
       movePiece();
+      turn = turn == 'white' ? 'black' : 'white';
     }
   }
 });
@@ -488,9 +490,15 @@ function movePiece(){ // calculating things for the animation
 }
 
 socket.on('apply move', (src, des)=>{
+  turn =  turn == 'white' ? 'black' : 'white';
   clickedDes = des;
   clickedSrc = src;
   movePiece();
+})
+
+socket.on('checkmated', (winner)=>{
+  navigateTo(pagesRoutes.winner);
+  console.log(winner);
 })
 
 const pieceImg = await getChessPieces();
