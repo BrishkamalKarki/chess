@@ -39,8 +39,7 @@ function updateBitAfterMove(src, des, gameState){
       gameState.WHITE_QUEEN = replaceBit(gameState.WHITE_QUEEN, des, 1);
     }
     
-    
-      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+    gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
 
     // replacing the src bit by 0 and des by 0 on opponent side
     if (isPiece(gameState.BLACK_BISHOPS, des))

@@ -291,8 +291,8 @@ canvas.addEventListener('pointerdown', async (event)=>{
         }
         clickedSrc = sq.sqNo;
         sq.drawBorder(2, 'yellow', false, true);
-        const possibleSqs = validateMoveAt(clickedSrc, gameState);
-        for (const sq of chessPieces.squares){
+        const possibleSqs = validateMoveAt(clickedSrc, gameState, turn);
+        for (const sq of chessPieces.squares){  
           for (const pos of possibleSqs){
             if (sq.sqNo == pos)
               sq.drawBorder(2, 'yellow', false, false);
@@ -313,9 +313,40 @@ canvas.addEventListener('pointerdown', async (event)=>{
     }
     else{
       movePiece();
+      console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn)
+      if (((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) && clickedDes - clickedSrc == 2 && turn == 'white'){
+        gameState.justCastled = false;
+        gameState.whiteCastled = true;
+        if (clickedDes == 2){
+          updateBitAfterMove(0, 3, gameState);
+          movePiece();
+        }
+        else{
+          updateBitAfterMove(7, 5, gameState);
+          movePiece();
+        }
+      }
+      else if (((getCp(gameState.BLACK_KING) >> BigInt(clickedSrc)) & 1n) && clickedDes - clickedSrc == 2 && turn == 'black'){
+        gameState.justCastled = false;
+        gameState.blackCastled = true;
+        if (clickedDes == 58){
+          updateBitAfterMove(56, 59, gameState);
+          movePiece();
+        }
+        else{
+          updateBitAfterMove(63, 61, gameState);
+          movePiece();
+        }
+      }
       turn = turn == 'white' ? 'black' : 'white';
     }
   }
+});
+
+socket.on('castle', (resp)=>{
+  clickedSrc = resp.src;
+  clickedDes = resp.des;
+  movePiece();
 });
 
 canvas.addEventListener('pointerup', (event)=>{
@@ -496,10 +527,135 @@ socket.on('apply move', (src, des)=>{
   movePiece();
 })
 
-socket.on('checkmated', (winner)=>{
+socket.on('checkmate', (winner)=>{
   navigateTo(pagesRoutes.winner);
   console.log(winner);
 })
+
+document.getElementById('resign')?.addEventListener('click', ()=>{
+  socket.emit('resignation', playedAs, room.id);
+});
+
+document.getElementById('draw')?.addEventListener('click', ()=>{
+  socket.emit('draw', playedAs, room.id);
+});
+
+let drawShown = false;
+socket.on('draw', (color)=>{
+  if (document.getElementById('drawContainer')) return;
+  drawShown = true;
+  const drawEl = document.getElementById('gameOptions');
+  const drawContainer = document.createElement('div');
+  drawContainer.id = 'drawContainer';
+  const p = document.createElement('p');
+  p.textContent = 'OPONENT SENT DRAW REQUEST';
+  Object.assign(drawContainer.style, {
+    display: 'flex',
+    flexDirection: 'column',
+    color: '#ffb700',
+  })
+  const subContainer = document.createElement('div');
+  subContainer.id = 'sC';
+  drawContainer.style.textAlign = 'center';
+  Object.assign(subContainer.style, {
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '12px',
+    textAlign: 'center',
+  })
+  p.style = {
+    color: 'white',
+    font: '600 25px \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif',
+    fontWeight: 'bold',
+    fontWeight: 'bold',
+  }
+  const draw = document.createElement('button');
+  const nope = document.createElement('button');
+  draw.textContent = 'Draw',
+  Object.assign(draw.style, {
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #5b6a66',
+    background: 'transparent',
+    color: '#06b6ec',
+    font: '600 30px \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif',
+    textAlign: 'center',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    transition: 'color .15s, border-color .15s, background-color .15s, transform .15s'
+  })
+  draw.id = 'drawAccpt';
+  Object.assign(nope.style, {
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #5b6a66',
+    background: 'transparent',
+    color: '#dd00ff',
+    font: '600 30px \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif',
+    textAlign: 'center',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    transition: 'color .15s, border-color .15s, background-color .15s, transform .15s',
+  })
+  nope.id = 'drawRjct';
+  nope.textContent = 'Nope',
+  
+  subContainer.appendChild(draw);
+  subContainer.appendChild(nope);
+  drawContainer.appendChild(p);
+  drawContainer.appendChild(subContainer);
+  drawEl.appendChild(drawContainer);
+  document.getElementById('drawAccpt').addEventListener('click', ()=>{
+    console.log('clicked the  draw button')
+    socket.emit('accept draw', playedAs, room.id);
+  })
+  
+  document.getElementById('drawRjct').addEventListener('click', ()=>{
+    socket.emit('reject draw', playedAs, room.id);
+  })
+  draw.addEventListener('mouseenter', () => {
+    draw.style.backgroundColor = '#5b6a66';
+    draw.style.transform = 'scale(1.05)';
+  });
+
+  draw.addEventListener('mouseleave', () => {
+    draw.style.backgroundColor = 'transparent';
+    draw.style.transform = 'scale(1)';
+  });
+
+  nope.addEventListener('mouseenter', () => {
+    nope.style.backgroundColor = '#5b6a66';
+    nope.style.transform = 'scale(1.05)';
+  });
+
+  nope.addEventListener('mouseleave', () => {
+    nope.style.backgroundColor = 'transparent';
+    nope.style.transform = 'scale(1)';
+  });
+});
+
+socket.on('draw accpt from server', ()=>{
+  drawShown = false;
+  const drawContainer = document.getElementById('drawContainer');
+  if (drawContainer) drawContainer.remove();
+  sessionStorage.setItem('turn', 'NOBODY');
+  sessionStorage.setItem('by', 'Draw');
+  navigateTo(pagesRoutes.winner);
+})
+
+socket.on('draw rjct from server', ()=>{
+  drawShown = false;
+  const drawContainer = document.getElementById('drawContainer');
+  if (drawContainer) drawContainer.remove();
+})
+
+socket.on('resign from server', (color, success)=>{
+  if (success){
+    sessionStorage.setItem('turn', color);
+    sessionStorage.setItem('by', 'resignation');
+    navigateTo(pagesRoutes.winner);
+  }
+});
 
 const pieceImg = await getChessPieces();
 const gameState = new GameState();

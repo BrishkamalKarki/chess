@@ -1,16 +1,26 @@
-import { checkCheck } from "./analyseBoard.js";
 
-let gameState, pieceToBitBoard;
+let gameState, pieceToBitBoard, turn;
 
-function validateMoveAt(pos, gs){
+function replaceBit(of, at, by){
+  if (by)
+    return ((of | (BigInt(1) << BigInt(at))));
+  else 
+    return ((of & ~(BigInt(1) << BigInt(at))));
+}
+
+function validateMoveAt(pos, gs, r){
   gameState = gs;
+  turn = r;
   pieceToBitBoard = { // mapping the pieces names with their respective bitmaps to finish the work in only single loop while drawing
     'wR': gameState.WHITE_ROOKS, 'wN': gameState.WHITE_KNIGHTS, 'wB': gameState.WHITE_BISHOPS,
     'wK': gameState.WHITE_KING, 'wQ': gameState.WHITE_QUEEN, 'wP': gameState.WHITE_PAWNS,
     'bR': gameState.BLACK_ROOKS, 'bN': gameState.BLACK_KNIGHTS, 'bB': gameState.BLACK_BISHOPS,
     'bK': gameState.BLACK_KING, 'bQ': gameState.BLACK_QUEEN, 'bP': gameState.BLACK_PAWNS,
+    'bPl': gameState.BLACK_PLACEMENTS, 'wPl': gameState.WHITE_PLACEMENTS
   }
+
   const piece = whatIsAt(pos);
+  console.log(piece, pos, " is the piece clicked and the position where that piece is.")
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
     'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
@@ -20,10 +30,167 @@ function validateMoveAt(pos, gs){
 
   const row = Math.floor(pos/8);
   const col = pos - row*8;
+
+  if (r == 'white'){
+    if (kingChecked(turn)) gameState.whiteChecked = true;
+    if (piece[1] == 'R') gameState.whiteRookMoved = true; 
+  }
+  if (r == 'black'){
+    if (kingChecked(turn)) gameState.blackChecked = true;
+    if (piece[1] == 'R') gameState.blackRookMoved = true; 
+  }
+
+  console.log(kingChecked(turn), ' is the king checked');
+  // console.log(willGetChecked(pos, piece, pieceToBitBoard, turn, des))
+  // if (willGetChecked(pos, piece, pieceToBitBoard, turn, des)) return [];
   const psblPaths = pieceToFunc[piece](row, col, pos, piece[0]);
-  const checkSqs = checkCheck(pos, psblPaths, piece, gs);
   console.log(psblPaths, ' are possible Paths');
+
+  let indx = -1;
+  for (const d of psblPaths){
+    indx++;
+    const ifChecked = kingChecked(turn); // in each's turn before each move check if king is checked
+    if (ifChecked){
+      const bBorg = pieceToBitBoard[piece]; // saving org board state
+      const desPiece = whatIsAt(d);
+      let bBorgEn;
+      if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece];
+      pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
+      pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], d, 1);
+      if (desPiece != ' ')
+        pieceToBitBoard[desPiece] = replaceBit(pieceToBitBoard[desPiece], d, 0);
+      const stillChecked = kingChecked(turn)
+      pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
+      if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
+      if (stillChecked){
+      console.log(' your king is checked')
+        psblPaths.splice(indx, 1);
+        break;
+      }
+    }
+
+    // check if after that move is the check
+    const bBorg = pieceToBitBoard[piece]; // saving org board state
+    const desPiece = whatIsAt(d);
+    let bBorgEn;
+    if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece]; 
+    console.log( piece, desPiece);
+    pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
+    pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], d, 1);
+    if (desPiece != ' ')
+      pieceToBitBoard[desPiece] = replaceBit(pieceToBitBoard[desPiece], d, 0);
+    const checked = kingChecked(turn);
+    pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
+      if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
+    if (checked){
+      psblPaths.splice(indx, 1);
+      break;
+    }
+  }
+
   return psblPaths;
+}
+
+function kingChecked(turn){
+  let p1, p2;
+  if (turn == 'white'){
+    p1 = 'w';
+    p2 = 'b';
+  }
+  else{
+    p1 = 'b';
+    p2 = 'w';
+  }
+
+  let enemyAttacks = [];
+  const kingPos = getPos(pieceToBitBoard[`${p1}K`]); // getting kings pos
+  const enemyRooks = getPos(pieceToBitBoard[`${p2}R`]);
+  const enemyBishops = getPos(pieceToBitBoard[`${p2}B`]);
+  const enemyQueen = getPos(pieceToBitBoard[`${p2}Q`]);
+  const enemyPawn = getPos(pieceToBitBoard[`${p2}P`]);
+  const enemyKnight = getPos(pieceToBitBoard[`${p2}N`]);
+  for (const pos of enemyRooks){
+    let row = Math.floor(pos/8);
+    let col = pos - row * 8;
+    const attacks = forRooks(row, col, pos, p2);
+    for (const atck of attacks){
+      enemyAttacks.push(atck);
+    }
+  }
+  for (const pos of enemyBishops){
+    let row = Math.floor(pos/8);
+    let col = pos - row *  8;
+    const attacks = forBishops(row, col, pos, p2);
+    for (const atck of attacks){
+      enemyAttacks.push(atck);
+    }
+  }
+  for (const pos of enemyQueen){
+    let row = Math.floor(pos/8);
+    let col = pos - row *  8;
+    const attacks = forQueen(row, col, pos, p2);
+    for (const atck of attacks){
+      enemyAttacks.push(atck);
+    }
+  }
+  for (const pos of enemyKnight){
+    let row = Math.floor(pos/8);
+    let col = pos - row *  8;
+    const attacks = forKnights(row, col, pos, p2);
+    for (const atck of attacks){
+      enemyAttacks.push(atck);
+    }
+  }
+  for (const pos of enemyPawn){
+    let row = Math.floor(pos/8);
+    let col = pos - row *  8;
+    const attacks = forPawn(row, col, pos, p2);
+    for (const atck of attacks){
+      enemyAttacks.push(atck);
+    }
+  }
+  console.log(enemyAttacks, turn)
+  if (enemyAttacks.includes(kingPos[0])) return true;
+  return false;
+}
+
+function getPos(bB){
+  let pos = [];
+  for (let i = 0; i <= 63; i++){
+    if ((bB >> BigInt(i)) & 1n) pos.push(i);
+  }
+  return pos;
+}
+
+function getAllMoves(turn, castle = false){
+  const piece = turn == 'white' ? 'w' : 'b';
+
+  let ttlPieces = [`${piece}P`, `${piece}R`, `${piece}N`, `${piece}B`, `${piece}Q`]
+  if (!castle)
+    ttlPieces = [...ttlPieces, `${piece}K`];
+  let ttlPos = [];
+  for (const tp of ttlPieces){
+    const indvPos = getPos(pieceToBitBoard[tp]);
+    ttlPos = [...ttlPos, ...indvPos];
+  }
+
+  const pieceToFunc = {
+    'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
+    'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
+    'bR': forRooks, 'bN': forKnights, 'bB': forBishops,
+    'bK': forKing, 'bQ': forQueen, 'bP': forPawn,
+  }
+
+  let moves = []; 
+  for (const pos of ttlPos){
+    const row = Math.floor(pos/8);
+    const col = pos - row * 8;
+    const p = whatIsAt(pos);
+    const move = pieceToFunc[p](row, col, pos, piece);
+    moves = [...moves, ...move];
+  }
+
+  return moves;
 }
 
 function getCp(cp){
@@ -54,8 +221,8 @@ function forPawn(row, col, pos, src){
   if (src == 'w'){
     posNew = pos + 8;
     rowNew = row + 1;
-    if (row == 1) possibleSqs.push(pos+16);
-    if (row < 7){
+    if (row == 1 && whatIsAt(pos+8) == ' ' && whatIsAt(pos+16) == ' ') possibleSqs.push(pos+16);
+    if (row < 7){ // for eating
       if (col < 7)
         if (whatIsAt(pos+9)[0] != ' ' && whatIsAt(pos+9)[0] != src) possibleSqs.push(pos+9);
       if (col > 0)
@@ -65,7 +232,7 @@ function forPawn(row, col, pos, src){
   else{
     posNew = pos - 8;
     rowNew = row - 1;
-    if (row == 6) possibleSqs.push(pos-16);
+    if (row == 6 && whatIsAt(pos-8) == ' ' && whatIsAt(pos-16) == ' ') possibleSqs.push(pos-16);
     if (row > 0){
       if (col < 7)
         if (whatIsAt(pos-7)[0] != ' ' && whatIsAt(pos-7)[0] != src) possibleSqs.push(pos-7);
@@ -95,6 +262,38 @@ function forKing(row, col, pos, src){
       else if (tar == ' ') possibleSqs.push(newPos);
     }
   }
+
+  // for the castling
+  if (src == 'w' && !gameState.whiteCastled && !gameState.whiteRookMoved && !kingChecked(turn) && !gameState.whiteChecked){
+    let moves = getAllMoves('black', true);
+    if (whatIsAt(1) == ' ' && whatIsAt(2) == ' ' && whatIsAt(3) == ' '){ // queen side castling
+      if (!moves.includes(1) && !moves.includes(2) && !moves.includes(3)){
+        possibleSqs.push(2);
+        gameState.castleType = 'Q';
+      }
+    }
+    if (whatIsAt(5) == ' ' && whatIsAt(6) == ' '){ // king side castling
+      if (!moves.includes(5) && !moves.includes(6)){
+        gameState.castleType = 'K';
+        possibleSqs.push(6);
+      }
+    }
+  }
+  else if (src == 'b' && !gameState.blackCastled && !gameState.blackRookMoved && !kingChecked(turn) && !gameState.blackChecked){
+    let moves = getAllMoves('white');
+    if (whatIsAt(57) == ' ' && whatIsAt(58) == ' ' && whatIsAt(59) == ' '){ // queen side castling
+      if (!moves.includes(57) && !moves.includes(58) && !moves.includes(59)){
+        gameState.castleType = 'Q';
+        possibleSqs.push(58);
+      }
+    }
+    if (whatIsAt(61) == ' ' && whatIsAt(62) == ' '){ // king side castling
+      if (!moves.includes(61) && !moves.includes(62)){
+        gameState.castleType = 'K';
+        possibleSqs.push(62);
+      }
+    }
+  }
   return possibleSqs;
 }
 
@@ -122,7 +321,6 @@ function forKnights(row, col, pos, src){
 }
 
 function forBishops(row, col, pos, src){
-  console.log(row, col, src)
   let possibleSqs = [];
   let loopMax = [7-row, row];
   let step = [+1, -1]
@@ -179,7 +377,6 @@ function forBishops(row, col, pos, src){
 }
 
 function forRooks(row, col, pos, src){
-  console.log(row, col, src)
   let possibleSqs = [];
   let loopMax = [7-row, row, 7-col, col];
   let step = [8, -8, 1, -1]

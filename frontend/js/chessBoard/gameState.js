@@ -27,6 +27,18 @@
 
       this.CLICKED = 0b0n;
       this.BLACK_WHITE = this.BLACK_PLACEMENTS | this.WHITE_PLACEMENTS;
+
+      this.turn = 'white';
+      this.timeOutWhite = false;
+      this.timeOutBlack = false;
+      this.whiteChecked = false;
+      this.blackChecked = false;
+      this.whiteRookMoved = false;
+      this.blackRookMoved = false;
+      this.whiteCastled = false;
+      this.blackCastled = false;
+      this.castleType = ' ';
+      this.justCastled = false;
     }
   }
 

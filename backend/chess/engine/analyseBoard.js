@@ -103,7 +103,7 @@ function replaceBit(of, at, by){
   if (by)
     return ((of | (BigInt(1) << BigInt(at))));
   else 
-    return ((of & ~(BigInt(1) << BigInt(at))));
+    return ((of & ~(BigInt(1) << BigInt(at)))); 
 }
 
 function whatIsAt(pos){
