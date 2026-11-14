@@ -2,6 +2,7 @@
 // navigates to next page
 
 export const pagesRoutes = { // path are relative to this location
+  home: new URL('../../index.html', import.meta.url),
   sPgameConfig: new URL('../../pages/sPgameConfig.html', import.meta.url),
   mPgameConfig: new URL('../../pages/mPgameConfig.html', import.meta.url),
   msPL: new URL('../../pages/msPL.html', import.meta.url),

@@ -2,7 +2,7 @@ import GameState from './gameState.js'
 import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
-import {validateMoveAt} from '../engine/movesValidator.js'
+import {validateMoveAt, checkCastleUtils, isPromoted, getPoint} from '../engine/movesValidator.js'
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
 const canvas = document.getElementById("chessBoard");
@@ -271,8 +271,11 @@ class Square{
 };
 
 // when the user clicks a piece
+let possibleSqs = [];
 canvas.addEventListener('pointerdown', async (event)=>{
+  if (turn != playedAs) return;
   if (animationOn) return;
+  if (promoting) return;
   mouseClicked = true;
   const rect = canvas.getBoundingClientRect();
   chessPieces.updateSquaresInfo();
@@ -285,13 +288,13 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
 
       if (playedAs == sq.pieceClr){
+        console.log(' i got in here')
         if (room != null){
-          console.log(playedAs)
           if (turn != playedAs) return;
         }
         clickedSrc = sq.sqNo;
         sq.drawBorder(2, 'yellow', false, true);
-        const possibleSqs = validateMoveAt(clickedSrc, gameState, turn);
+        possibleSqs = validateMoveAt(clickedSrc, gameState, turn);
         for (const sq of chessPieces.squares){  
           for (const pos of possibleSqs){
             if (sq.sqNo == pos)
@@ -312,41 +315,30 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
     }
     else{
-      movePiece();
-      console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn)
-      if (((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) && clickedDes - clickedSrc == 2 && turn == 'white'){
-        gameState.justCastled = false;
-        gameState.whiteCastled = true;
-        if (clickedDes == 2){
-          updateBitAfterMove(0, 3, gameState);
-          movePiece();
-        }
-        else{
-          updateBitAfterMove(7, 5, gameState);
-          movePiece();
-        }
+      console.log(gameState.whiteCastled, gameState.whiteKRookMoved, gameState.whiteQRookMoved, ' are white castled k rook and q  rook moved')
+      console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedSrc)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn,gameState.WHITE_KING)
+      // checkCastleUtils(turn, clickedSrc);
+      const point = getPoint(clickedDes);
+      if (point != 0){
+        document.getElementById('youPoint').textContent = Number(document.getElementById('youPoint').textContent) + point;
       }
-      else if (((getCp(gameState.BLACK_KING) >> BigInt(clickedSrc)) & 1n) && clickedDes - clickedSrc == 2 && turn == 'black'){
-        gameState.justCastled = false;
-        gameState.blackCastled = true;
-        if (clickedDes == 58){
-          updateBitAfterMove(56, 59, gameState);
-          movePiece();
-        }
-        else{
-          updateBitAfterMove(63, 61, gameState);
-          movePiece();
-        }
+      if (possibleSqs.includes(clickedDes)){
+        movePiece();
+        possibleSqs.clear();
       }
-      turn = turn == 'white' ? 'black' : 'white';
+      // turn = turn == 'white' ? 'black' : 'white';
     }
   }
 });
 
 socket.on('castle', (resp)=>{
-  clickedSrc = resp.src;
-  clickedDes = resp.des;
-  movePiece();
+  if (isPiece(gameState.WHITE_ROOKS, resp.src) || isPiece(gameState.BLACK_ROOKS, resp.src)) {
+    updateBitAfterMove(resp.src, resp.des);
+  }
+  chessPieces.updateSquaresInfo();
+  chessPieces.updatePieceToBB();
+  board.draw();
+  chessPieces.drawAllPieces();
 });
 
 canvas.addEventListener('pointerup', (event)=>{
@@ -473,21 +465,75 @@ function updateBitAfterMove(src, des){
   }
 };
 
+let promoting = false; 
 function animate(timestamp){ // animating the piece move
   if (frame >= 10){
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
+    console.log('king moved from ', clickedSrc, ' ', clickedDes)
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
     // reseting the variables
+    console.log(" the tun is the turn of ", turn);
     disX = disY = mX = mY = srcX = srcY = desX = desY = null;
     frame = 0;
-    clickedDes = null;
-    clickedSrc = null;
     // redrawing canvas
     board.draw();
     chessPieces.drawAllPieces();
     animationOn = false;
+    const promoted = isPromoted(clickedSrc, clickedDes, gameState);
+    if (promoted && room == null){
+      promoteFunc();
+    }
+    else{
+      if (((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) && Math.abs(clickedDes - clickedSrc) == 2 && turn == 'white' && !gameState.whiteCastled && !gameState.whiteKMoved){ 
+        console.log('karna raj akri')
+        gameState.justCastled = false;
+        gameState.whiteCastled = true;
+        console.log(clickedDes, ' is the clicked des ')
+        if (clickedDes == 2 && !gameState.whiteQRookMoved){
+          console.log('white queen side move')
+          if (isPiece(gameState.WHITE_ROOKS, 0)) updateBitAfterMove(0, 3);
+          gameState.whiteQRookMoved = true;
+        }
+        else if (!gameState.whiteKRookMoved && clickedDes == 6){
+          console.log('white king side move')
+          if (isPiece(gameState.WHITE_ROOKS, 7)) updateBitAfterMove(7, 5);
+          gameState.whiteKRookMoved = true;
+        }
+        chessPieces.updateSquaresInfo();
+        chessPieces.updatePieceToBB();
+        board.draw();
+        chessPieces.drawAllPieces();
+      }
+      else if (((getCp(gameState.BLACK_KING) >> BigInt(clickedDes)) & 1n) && Math.abs(clickedDes - clickedSrc) == 2 && turn == 'black' && !gameState.blackCastled && !gameState.blackKMoved){
+        gameState.justCastled = false;
+        gameState.blackCastled = true;
+        if (clickedDes == 58 && !gameState.blackQRookMoved){
+          console.log('black queen side move')
+          if (isPiece(gameState.BLACK_ROOKS, 56)) updateBitAfterMove(56, 59);
+          gameState.blackQRookMoved = true;
+        }
+        else if (!gameState.blackKRookMoved && clickedDes == 62){
+          console.log('black king side move')
+          if (isPiece(gameState.BLACK_ROOKS, 63)) updateBitAfterMove(63, 61);
+          gameState.blackKRookMoved = true;
+        }
+        chessPieces.updateSquaresInfo();
+        chessPieces.updatePieceToBB();
+        board.draw();
+        chessPieces.drawAllPieces();
+      }
+    }
+    checkCastleUtils(turn, clickedSrc, clickedDes);
+    if (!promoting)
+    turn = turn == 'white' ? 'black' : 'white';
+
+    // after making the move fully and flipping hte turn
+    clickedDes = null;
+    clickedSrc = null;
+    chessPieces.updateSquaresInfo();
+    chessPieces.updatePieceToBB();
     return;
   }
   mX = srcX + disX * frame / 10;
@@ -521,23 +567,31 @@ function movePiece(){ // calculating things for the animation
 }
 
 socket.on('apply move', (src, des)=>{
-  turn =  turn == 'white' ? 'black' : 'white';
   clickedDes = des;
   clickedSrc = src;
   movePiece();
 })
 
-socket.on('checkmate', (winner)=>{
+socket.on('checkmate', (looser)=>{
+  sessionStorage.setItem('turn', looser == 'white'? 'black': 'white');
+  sessionStorage.setItem('by', 'CheckMate');
   navigateTo(pagesRoutes.winner);
-  console.log(winner);
+})
+
+socket.on('stalemate', (looser)=>{
+  sessionStorage.setItem('turn', 'nobody');
+  sessionStorage.setItem('by', 'StaleMate');
+  navigateTo(pagesRoutes.winner);
 })
 
 document.getElementById('resign')?.addEventListener('click', ()=>{
-  socket.emit('resignation', playedAs, room.id);
+  if (room != null)
+    socket.emit('resignation', playedAs, room.id);
 });
 
 document.getElementById('draw')?.addEventListener('click', ()=>{
-  socket.emit('draw', playedAs, room.id);
+  if (room != null)
+    socket.emit('draw', playedAs, room.id);
 });
 
 let drawShown = false;
@@ -643,10 +697,32 @@ socket.on('draw accpt from server', ()=>{
   navigateTo(pagesRoutes.winner);
 })
 
+if (room== null){
+  const drawEl = document.getElementById('draw');
+  drawEl.remove();
+  document.getElementById('resign').addEventListener('click', ()=>{
+    sessionStorage.setItem('turn', 'BOT');
+    sessionStorage.setItem('by', 'resignation');
+    navigateTo(pagesRoutes.winner);
+  })
+}
+
+document.getElementById('backToMenu').addEventListener('click', ()=>{
+  socket.emit('i am out', playedAs, room.id);
+  navigateTo(pagesRoutes.home);
+})
+
 socket.on('draw rjct from server', ()=>{
   drawShown = false;
   const drawContainer = document.getElementById('drawContainer');
   if (drawContainer) drawContainer.remove();
+})
+
+socket.on('player left', (color)=>{
+  if (color != playedAs) return;
+  sessionStorage.setItem('turn', color);
+  sessionStorage.setItem('by', 'opponent left');
+  navigateTo(pagesRoutes.winner);   
 })
 
 socket.on('resign from server', (color, success)=>{
@@ -656,6 +732,148 @@ socket.on('resign from server', (color, success)=>{
     navigateTo(pagesRoutes.winner);
   }
 });
+
+socket.on('promote', (t, des)=>{
+  clickedDes = des; 
+  turn = t; 
+  promoteFunc(); 
+});
+
+socket.on('promote for opp', (t, promoDes, piece)=>{
+  if (playedAs == t) return;
+  console.log('opp promoted the peice')
+  if (t == 'white'){
+    if (piece == 'B')
+      gameState.WHITE_BISHOPS = replaceBit(getCp(gameState.WHITE_BISHOPS), promoDes, 1);
+    else if (piece == 'R')
+      gameState.WHITE_ROOKS = replaceBit(getCp(gameState.WHITE_ROOKS), promoDes, 1);
+    else if (piece == 'Q')
+      gameState.WHITE_QUEEN = replaceBit(getCp(gameState.WHITE_QUEEN), promoDes, 1);
+    else if (piece == 'N')
+      gameState.WHITE_KNIGHTS = replaceBit(getCp(gameState.WHITE_KNIGHTS), promoDes, 1);
+    gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), promoDes, 0);
+  }
+  else if (t == 'black'){
+    if (piece == 'B')
+      gameState.BLACK_BISHOPS = replaceBit(getCp(gameState.BLACK_BISHOPS), promoDes, 1);
+    else if (piece == 'R')
+      gameState.BLACK_ROOKS = replaceBit(getCp(gameState.BLACK_ROOKS), promoDes, 1);
+    else if (piece == 'Q')
+      gameState.BLACK_QUEEN = replaceBit(getCp(gameState.BLACK_QUEEN), promoDes, 1);
+    else if (piece == 'N')
+      gameState.BLACK_KNIGHTS = replaceBit(getCp(gameState.BLACK_KNIGHTS), promoDes, 1);
+    gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), promoDes, 0);
+  }
+
+  chessPieces.updateSquaresInfo();
+  chessPieces.updatePieceToBB();
+  board.draw();
+  chessPieces.drawAllPieces();
+});
+
+function promoteFunc(){
+  promoting = true;
+  const promotionOptEl = document.getElementById('promotionOption');
+  Object.assign(promotionOptEl.style,{
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '10px',
+    alignItems: 'center'
+  })
+  
+  const divEl = document.createElement('div');
+  divEl.id = 'c';
+
+  Object.assign(divEl.style,{
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '10px',
+    alignItems: 'center'
+  })
+  const buttons = ['Q', 'R', 'B', 'N'].map(piece => {
+    const button = document.createElement('button');
+    button.textContent = piece;
+    
+    Object.assign(button.style, {
+      width: '40px',
+      height: '40px',
+      backgroundColor: 'transparent',
+      color: 'white',
+      border: 'none',
+      cursor: 'pointer',
+      borderRadius: '5px',
+      border: '1px solid #d3b77a',
+      fontWeight: 'bold'
+    });
+
+    button.addEventListener('mouseenter', () => {
+      button.style.backgroundColor = 'transparent';
+      button.style.transform = 'scale(1.05)';
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.backgroundColor = 'transparent';
+      button.style.transform = 'scale(1)';
+    });
+    
+    const promoDes = clickedDes;
+    button.addEventListener('click', () => {
+      button.style.backgroundColor = 'transparent';
+      button.style.transform = 'scale(0.95)';
+      console.log(" the turn is the color of ", turn);
+      let clicked = button.textContent;
+      if (turn == 'white'){
+        if (button.textContent == 'B')
+          gameState.WHITE_BISHOPS = replaceBit(getCp(gameState.WHITE_BISHOPS), promoDes, 1);
+        else if (button.textContent == 'R')
+          gameState.WHITE_ROOKS = replaceBit(getCp(gameState.WHITE_ROOKS), promoDes, 1);
+        else if (button.textContent == 'Q')
+          gameState.WHITE_QUEEN = replaceBit(getCp(gameState.WHITE_QUEEN), promoDes, 1);
+        else if (button.textContent == 'N')
+          gameState.WHITE_KNIGHTS = replaceBit(getCp(gameState.WHITE_KNIGHTS), promoDes, 1);
+        gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), promoDes, 0);
+      }
+      else if (turn == 'black'){
+        if (button.textContent == 'B')
+          gameState.BLACK_BISHOPS = replaceBit(getCp(gameState.BLACK_BISHOPS), promoDes, 1);
+        else if (button.textContent == 'R')
+          gameState.BLACK_ROOKS = replaceBit(getCp(gameState.BLACK_ROOKS), promoDes, 1);
+        else if (button.textContent == 'Q')
+          gameState.BLACK_QUEEN = replaceBit(getCp(gameState.BLACK_QUEEN), promoDes, 1);
+        else if (button.textContent == 'N')
+          gameState.BLACK_KNIGHTS = replaceBit(getCp(gameState.BLACK_KNIGHTS), promoDes, 1);
+        gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), promoDes, 0);
+      }
+      
+      socket.emit('promote option', room.id, playedAs, promoDes, clicked);
+
+      gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+      gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+      const c = document.getElementById('c');
+      c.remove();
+      console.log((getCp(gameState.WHITE_KNIGHTS) >> BigInt(promoDes)) & 1n , gameState.WHITE_KNIGHTS>>BigInt(55), turn, ' is drawn hahahahahhahahhahahhahahhahahahahahahhaha')
+      
+      chessPieces.updatePieceToBB();
+      board.draw();
+      chessPieces.drawAllPieces();
+
+      promoting = false;
+      turn = turn == 'white'? 'black': 'white';
+    });
+    return button;
+  });
+  const [Q, R, B, N] = buttons;
+  divEl.append(Q, R, B, N);
+  promotionOptEl.appendChild(divEl);
+
+  if (room != null){
+    chessPieces.updateSquaresInfo();
+    chessPieces.updatePieceToBB();
+    board.draw();
+    chessPieces.drawAllPieces();
+  }
+}
 
 const pieceImg = await getChessPieces();
 const gameState = new GameState();

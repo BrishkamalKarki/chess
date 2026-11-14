@@ -1,12 +1,21 @@
 import navigateTo from "../../frontend/js/utils/navigator.js";
 import { checkMate } from "../chess/engine/analyseBoard.js";
-import { checkCheckMate, checkStaleMate, validateMoveAt } from "../chess/engine/movesValidator.js";
+import { checkCastleUtils, checkCheckMate, checkStaleMate, isPromoted, validateMoveAt } from "../chess/engine/movesValidator.js";
 import { updateBitAfterMove } from "../chess/engine/updateState.js";
 import { stateToRoom } from "../utils/games.js";
 import {rooms, roomService} from "../utils/rooms.js";
 import { gameState } from "./configEvents.js";
 
 function getCp(org){return org};
+function isPiece(of, at){
+  return ((of >> BigInt(at)) & 1n);
+}
+function replaceBit(of, at, by){
+  if (by)
+    return ((of | (BigInt(1) << BigInt(at))));
+  else 
+    return ((of & ~(BigInt(1) << BigInt(at))));
+}
 
 export function registerGameEvents(io, socket){
   socket.on('apply move', (roomId, userId, src, des, callback)=>{ 
@@ -14,9 +23,7 @@ export function registerGameEvents(io, socket){
     const validMoves = validateMoveAt(src, stateToRoom[`${roomId}`].gameState, rooms.get(roomId), des);
     
     if (validMoves.includes(des)){
-      if (checkStaleMate(gameState, rooms.get(roomId))){
-        io.sockets.in(roomId).emit('stalemate');
-      }
+
       updateBitAfterMove(src, des, stateToRoom[`${roomId}`].gameState);
       console.log('apply move immited from the  server');
       io.sockets.in(roomId).emit('apply move', src, des);
@@ -25,49 +32,90 @@ export function registerGameEvents(io, socket){
           success: true
         }
       )
-      if (((getCp(stateToRoom[`${roomId}`].gameState.WHITE_KING) >> BigInt(des)) & 1n) && des - src == 2){
+
+      if (((getCp(stateToRoom[`${roomId}`].gameState.WHITE_KING) >> BigInt(des)) & 1n) && Math.abs(des - src) == 2 && rooms.get(roomId).turn == 'white' && !stateToRoom[`${roomId}`].gameState.whiteCastled && !stateToRoom[`${roomId}`].gameState.whiteKMoved){ 
+        console.log('karna raj kakri')
         stateToRoom[`${roomId}`].gameState.justCastled = false;
         stateToRoom[`${roomId}`].gameState.whiteCastled = true;
-        if (des == 2){
-          updateBitAfterMove(0, 3, stateToRoom[`${roomId}`].gameState);
-          io.sockets.in(roomId).emit('castle', {
-            src: 0, des: 3
-          })
+        console.log(des, ' is the clicked des ')
+        if (des == 2 && !stateToRoom[`${roomId}`].gameState.whiteQRookMoved){
+          console.log('white queen side move')
+          if (isPiece(stateToRoom[`${roomId}`].gameState.WHITE_ROOKS, 0)) updateBitAfterMove(0, 3, stateToRoom[`${roomId}`].gameState);
+          stateToRoom[`${roomId}`].gameState.whiteQRookMoved = true;
+          console.log(' white side moved king queen')
         }
-        else{
-          updateBitAfterMove(7, 5, stateToRoom[`${roomId}`].gameState);
-          io.sockets.in(roomId).emit('castle', {
-            src: 7, des: 5
-          })
+        else if (!stateToRoom[`${roomId}`].gameState.whiteKRookMoved && des == 6){
+          console.log('white king side move')
+          if (isPiece(stateToRoom[`${roomId}`].gameState.WHITE_ROOKS, 7)) updateBitAfterMove(7, 5, stateToRoom[`${roomId}`].gameState);
+          stateToRoom[`${roomId}`].gameState.whiteKRookMoved = true;
         }
       }
-      else if (((getCp(stateToRoom[`${roomId}`].gameState.BLACK_KING) >> BigInt(des)) & 1n) && des - src == 2){
+      else if (((getCp(stateToRoom[`${roomId}`].gameState.BLACK_KING) >> BigInt(des)) & 1n) && Math.abs(des - src) == 2 && rooms.get(roomId).turn == 'black' && !stateToRoom[`${roomId}`].gameState.blackCastled && !stateToRoom[`${roomId}`].gameState.blackKMoved){
         stateToRoom[`${roomId}`].gameState.justCastled = false;
         stateToRoom[`${roomId}`].gameState.blackCastled = true;
-        if (des == 58){
-          updateBitAfterMove(56, 59, stateToRoom[`${roomId}`].gameState);
-          io.sockets.in(roomId).emit('castle', {
-            src: 56, des: 59
-          })
+        if (des == 58 && !stateToRoom[`${roomId}`].gameState.blackQRookMoved){
+          console.log('black queen side move')
+          if (isPiece(stateToRoom[`${roomId}`].gameState.BLACK_ROOKS, 56)) updateBitAfterMove(56, 59, stateToRoom[`${roomId}`].gameState);
+          stateToRoom[`${roomId}`].gameState.blackQRookMoved = true;
         }
-        else{
-          updateBitAfterMove(63, 61, stateToRoom[`${roomId}`].gameState);
-          io.sockets.in(roomId).emit('castle', {
-            src: 63, des: 61
-          })
+        else if (!stateToRoom[`${roomId}`].gameState.blackKRookMoved && des == 62){
+          console.log('black king side move')
+          if (isPiece(stateToRoom[`${roomId}`].gameState.BLACK_ROOKS, 63)) updateBitAfterMove(63, 61, stateToRoom[`${roomId}`].gameState);
+          stateToRoom[`${roomId}`].gameState.blackKRookMoved = true;
         }
       }
       
-      if (checkStaleMate(gameState, rooms.get(roomId))){
-        io.sockets.in(roomId).emit('stalemate');
-      }
+      // if (((getCp(stateToRoom[`${roomId}`].gameState.WHITE_KING) >> BigInt(des)) & 1n) && des - src == 2){
+      //   stateToRoom[`${roomId}`].gameState.justCastled = false;
+      //   stateToRoom[`${roomId}`].gameState.whiteCastled = true;
+      //   if (des == 2){
+      //     updateBitAfterMove(0, 3, stateToRoom[`${roomId}`].gameState);
+      //     io.sockets.in(roomId).emit('castle', {
+      //       src: 0, des: 3
+      //     })
+      //   }
+      //   else{
+      //     updateBitAfterMove(7, 5, stateToRoom[`${roomId}`].gameState);
+      //     io.sockets.in(roomId).emit('castle', {
+      //       src: 7, des: 5
+      //     })
+      //   }
+      // }
+      // else if (((getCp(stateToRoom[`${roomId}`].gameState.BLACK_KING) >> BigInt(des)) & 1n) && des - src == 2){
+      //   stateToRoom[`${roomId}`].gameState.justCastled = false;
+      //   stateToRoom[`${roomId}`].gameState.blackCastled = true;
+      //   if (des == 58){
+      //     updateBitAfterMove(56, 59, stateToRoom[`${roomId}`].gameState);
+      //     io.sockets.in(roomId).emit('castle', {
+      //       src: 56, des: 59
+      //     })
+      //   }
+      //   else{
+      //     updateBitAfterMove(63, 61, stateToRoom[`${roomId}`].gameState);
+      //     io.sockets.in(roomId).emit('castle', {
+      //       src: 63, des: 61 
+      //     })
+      //   }
+      // }
       
-      const isCheckMate = checkCheckMate(gameState, rooms.get(roomId));
-      if (isCheckMate[0]){
-        io.sockets.in(roomId).emit('checkmate', isCheckMate[1]);
-      } 
+      
+      if (isPromoted(src, des, stateToRoom[`${roomId}`].gameState)){
+        socket.emit('promote', rooms.get(roomId).turn, des);
+      }
+      checkCastleUtils(rooms.get(roomId).turn, src, des);
+      
       rooms.get(roomId).turn = rooms.get(roomId).turn == 'white' ? 'black' : 'white';
       console.log('now the turn is ', rooms.get(roomId).turn)
+      
+      if (checkStaleMate(stateToRoom[roomId].gameState, rooms.get(roomId))){
+        io.sockets.in(roomId).emit('stalemate', rooms.get(roomId).turn);
+      }
+     
+      const isCheckMate = checkCheckMate(gameState, rooms.get(roomId));
+      console.log('  this is the check mate  ,  ', isCheckMate); 
+      if (isCheckMate){
+        io.sockets.in(roomId).emit('checkmate', rooms.get(roomId).turn);
+      } 
     }
     else{
       return callback(
@@ -104,5 +152,38 @@ export function registerGameEvents(io, socket){
 
   socket.on('reject draw', (color, id)=>{
     socket.emit('draw rjct from server');
+  })
+
+  socket.on('promote option', (roomId, color, promoDes, piece)=>{
+    if (color == 'white'){
+      if (piece == 'B')
+        stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS), promoDes, 1);
+      else if (piece == 'R')
+        stateToRoom[`${roomId}`].gameState.WHITE_ROOKS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_ROOKS), promoDes, 1);
+      else if (piece == 'Q')
+        stateToRoom[`${roomId}`].gameState.WHITE_QUEEN = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_QUEEN), promoDes, 1);
+      else if (piece == 'N')
+        stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS), promoDes, 1);
+      stateToRoom[`${roomId}`].gameState.WHITE_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_PAWNS), promoDes, 0);
+    }
+    else if (color == 'black'){
+      if (piece == 'B')
+        stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS), promoDes, 1);
+      else if (piece == 'R')
+        stateToRoom[`${roomId}`].gameState.BLACK_ROOKS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_ROOKS), promoDes, 1);
+      else if (piece == 'Q')
+        stateToRoom[`${roomId}`].gameState.BLACK_QUEEN = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_QUEEN), promoDes, 1);
+      else if (piece == 'N')
+        stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS), promoDes, 1);
+      stateToRoom[`${roomId}`].gameState.BLACK_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_PAWNS), promoDes, 0);
+    }
+
+    io.sockets.in(roomId).emit('promote for opp', color, promoDes, piece);
+  })
+
+  socket.on('i am out', (color, id)=>{
+    rooms.get(id).gameOn = false;
+    rooms.get(id).winner = color == 'white'? 'black': 'white';
+    io.sockets.in(id).emit('player left', color == 'white'? 'black': 'white');
   })
 };

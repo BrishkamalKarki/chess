@@ -2,7 +2,6 @@ import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 import socket from '../socket/socket.js'
 
 let roomCreateId, roomJoinId, userId;
-
 if (sessionStorage.getItem('gameMode') == 'multiPlayer'){
   roomCreateId = sessionStorage.getItem('roomCreateId');
   sessionStorage.removeItem('roomCreateId');
@@ -12,14 +11,18 @@ if (sessionStorage.getItem('gameMode') == 'multiPlayer'){
   sessionStorage.removeItem('userId');
 }
 
+let gameMode;
 document.getElementById("play")?.addEventListener('click', async ()=>{
-  const gameMode = sessionStorage.getItem('gameMode');
+  gameMode = sessionStorage.getItem('gameMode');
   const playedAs = document.getElementById("playAs").value;
   const botDiff = document.getElementById("botDiff")?.value;
-  const timerOn = document.getElementById("timer").checked;
-  const gameTime = document.getElementById("timeValue").textContent;
+  let timerOn, gameTime;
+  if (gameMode == 'multiPlayer')
+    timerOn = document.getElementById("timer").checked;
+  if (gameMode == 'multiPlayer')
+    gameTime = document.getElementById("timeValue").textContent;
   if (botDiff != undefined)
-    sessionStorage.setItem('botDiff', `${botDiff}`);
+  sessionStorage.setItem('botDiff', `${botDiff}`);
   sessionStorage.setItem('gameTime', `${gameTime}`);
   sessionStorage.setItem('timerOn', `${timerOn}`);
   sessionStorage.setItem('playedAs', `${playedAs}`);
@@ -35,19 +38,24 @@ document.getElementById("play")?.addEventListener('click', async ()=>{
       }else{
         console.log(responce.message);
       }
-  }
-  else{
-    navigateTo(pagesRoutes.arena);
-  }
-});
+    }
+    else{
+      navigateTo(pagesRoutes.arena);
+    }
+  });
+  
+  document.getElementById("dec")?.addEventListener('click', ()=>{
+    let gameTime = Number(document.getElementById("timeValue").textContent);
+    if (gameTime >= 2)
+      document.getElementById("timeValue").textContent = `${gameTime-1}`;
+  });
+  
+  document.getElementById("inc")?.addEventListener('click', ()=>{
+    let gameTime = Number(document.getElementById("timeValue").textContent);
+    document.getElementById("timeValue").textContent = `${gameTime+1}`;
+  });
 
-document.getElementById("dec")?.addEventListener('click', ()=>{
-  let gameTime = Number(document.getElementById("timeValue").textContent);
-  if (gameTime >= 2)
-  document.getElementById("timeValue").textContent = `${gameTime-1}`;
-});
-
-document.getElementById("inc")?.addEventListener('click', ()=>{
-  let gameTime = Number(document.getElementById("timeValue").textContent);
-  document.getElementById("timeValue").textContent = `${gameTime+1}`;
-});
+  if (sessionStorage.getItem('gameMode') != 'multiPlayer'){
+    const stepperEl = document.getElementById('stepper');
+    stepperEl.remove();
+  }

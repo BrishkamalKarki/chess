@@ -40,6 +40,13 @@ import { registerRoomEvents } from "../socket/roomEvents.js";
       this.blackCastled = false;
       this.castleType = ' ';
       this.justCastled = false;
+      
+      this.whiteQRookMoved = false;
+      this.whiteKRookMoved = false;
+      this.blackQRookMoved = false;
+      this.blackKRookMoved = false;
+      this.whiteKMoved = false;
+      this.blackKMoved = false;
     }
   }
 

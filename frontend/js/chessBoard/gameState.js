@@ -33,12 +33,16 @@
       this.timeOutBlack = false;
       this.whiteChecked = false;
       this.blackChecked = false;
-      this.whiteRookMoved = false;
-      this.blackRookMoved = false;
+      this.whiteQRookMoved = false;
+      this.whiteKRookMoved = false;
+      this.blackQRookMoved = false;
+      this.blackKRookMoved = false;
       this.whiteCastled = false;
       this.blackCastled = false;
       this.castleType = ' ';
       this.justCastled = false;
+      this.whiteKMoved = false;
+      this.blackKMoved = false;
     }
   }
 
