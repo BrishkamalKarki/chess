@@ -2,7 +2,7 @@ import GameState from './gameState.js'
 import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
-import {validateMoveAt, checkCastleUtils, isPromoted, getPoint} from '../engine/movesValidator.js'
+import {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate} from '../engine/movesValidator.js'
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
 const canvas = document.getElementById("chessBoard");
@@ -530,6 +530,17 @@ function animate(timestamp){ // animating the piece move
     turn = turn == 'white' ? 'black' : 'white';
 
     // after making the move fully and flipping hte turn
+    if (checkCheckMate(gameState, turn)){
+      sessionStorage.setItem('turn', turn == 'white'? 'black': 'white');
+      sessionStorage.setItem('by', 'CheckMate');
+      navigateTo(pagesRoutes.winner);
+    }
+    
+    if (checkStaleMate(gameState, turn)){
+      sessionStorage.setItem('turn', 'nobody');
+      sessionStorage.setItem('by', 'StaleMate');
+      navigateTo(pagesRoutes.winner);
+    }
     clickedDes = null;
     clickedSrc = null;
     chessPieces.updateSquaresInfo();
