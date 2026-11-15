@@ -179,7 +179,7 @@ function kingChecked(room){
   for (const pos of enemyPawn){
     let row = Math.floor(pos/8);
     let col = pos - row *  8;
-    const attacks = forPawn(row, col, pos, p2);
+    const attacks = forPawnAttacks(row, col, pos, p2);
     for (const atck of attacks){
       enemyAttacks.push(atck);
     }
@@ -205,6 +205,8 @@ function buildPieceToBitBoard(gameState){
     'bK': gameState.BLACK_KING, 'bQ': gameState.BLACK_QUEEN, 'bP': gameState.BLACK_PAWNS,
     'bPl': gameState.BLACK_PLACEMENTS, 'wPl': gameState.WHITE_PLACEMENTS
   }
+
+  return pieceToBitBoard;
 }
 
 function hasAnyLegalMove(gs, roomState){
@@ -354,6 +356,19 @@ function forPawn(row, col, pos, src){
         if (whatIsAt(pos-7)[0] != ' ' && whatIsAt(pos-7)[0] != src) possibleSqs.push(pos-7);
       if (col > 0)
         if (whatIsAt(pos-9)[0] != ' ' && whatIsAt(pos-9)[0] != src) possibleSqs.push(pos-9);
+    }
+  }
+
+  // en passant
+  if (gameState.twoSqPawn.length != 0){
+    const enPawn = gameState.twoSqPawn[0];
+    const enRow = Math.floor(enPawn / 8);
+    const enCol = enPawn - enRow * 8;
+    const enPiece = whatIsAt(enPawn);
+    const target = src == 'w' ? enPawn + 8 : enPawn - 8;
+
+    if (enRow == row && Math.abs(enCol - col) == 1 && enPiece[1] == 'P' && enPiece[0] != src && whatIsAt(target) == ' '){
+      possibleSqs.push(target);
     }
   }
 

@@ -47,6 +47,7 @@ import { registerRoomEvents } from "../socket/roomEvents.js";
       this.blackKRookMoved = false;
       this.whiteKMoved = false;
       this.blackKMoved = false;
+      this.twoSqPawn = [] ;
     }
   }
 

@@ -8,9 +8,9 @@ function replaceBit(of, at, by){
     return ((of & ~(BigInt(1) << BigInt(at))));
 }
 
-function validateMoveAt(pos, gs, r){
+function validateMoveAt(pos, gs, t){
   gameState = gs;
-  turn = r;
+  turn = t;
   pieceToBitBoard = { // mapping the pieces names with their respective bitmaps to finish the work in only single loop while drawing
     'wR': gameState.WHITE_ROOKS, 'wN': gameState.WHITE_KNIGHTS, 'wB': gameState.WHITE_BISHOPS,
     'wK': gameState.WHITE_KING, 'wQ': gameState.WHITE_QUEEN, 'wP': gameState.WHITE_PAWNS,
@@ -20,6 +20,7 @@ function validateMoveAt(pos, gs, r){
   }
 
   const piece = whatIsAt(pos);
+  gameState.clickedPiece = piece;
   console.log(piece, pos, " is the piece clicked and the position where that piece is.")
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
@@ -107,15 +108,15 @@ function buildPieceToBitBoard(gameState){
     'bK': gameState.BLACK_KING, 'bQ': gameState.BLACK_QUEEN, 'bP': gameState.BLACK_PAWNS,
     'bPl': gameState.BLACK_PLACEMENTS, 'wPl': gameState.WHITE_PLACEMENTS
   }
+
+  return pieceToBitBoard;
 }
 
-function hasAnyLegalMove(gs, turn){
+function hasAnyLegalMove(gs, t){
   gameState = gs;
-  room = turn;
   pieceToBitBoard = buildPieceToBitBoard(gs);
-
-  const color = turn;
-  const pieceColor = color == 'white' ? 'w' : 'b';
+  turn = t;
+  const pieceColor = turn == 'white' ? 'w' : 'b';
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
     'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
@@ -208,9 +209,9 @@ function kingChecked(turn){
     }
   }
   for (const pos of enemyPawn){
-    let row = Math.floor(pos/8);
-    let col = pos - row *  8;
-    const attacks = forPawn(row, col, pos, p2);
+    const row = Math.floor(pos / 8);
+    const col = pos - row * 8;
+    const attacks = forPawnAttacks(row, col, pos, p2);
     for (const atck of attacks){
       enemyAttacks.push(atck);
     }
@@ -329,6 +330,20 @@ function forPawn(row, col, pos, src){
     }
   }
 
+  // en passant
+  if (gameState.twoSqPawn.length != 0){
+    const enPawn = gameState.twoSqPawn[0];
+    const enRow = Math.floor(enPawn / 8);
+    const enCol = enPawn - enRow * 8;
+    const enPiece = whatIsAt(enPawn);
+    const target = src == 'w' ? enPawn + 8 : enPawn - 8;
+
+    if (enRow == row && Math.abs(enCol - col) == 1 && enPiece[1] == 'P' && enPiece[0] != src && whatIsAt(target) == ' '){
+      possibleSqs.push(target);
+    }
+  }
+  
+  console.log(possibleSqs, ' is the possible move fo rpawn and in for Pawn twoSqpawn is ', gameState.twoSqPawn)
   if (rowNew >= 0 && rowNew <= 7){
     const tar = whatIsAt(posNew)[0];
     if (tar == ' ') possibleSqs.push(posNew);

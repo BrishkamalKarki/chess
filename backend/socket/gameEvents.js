@@ -23,6 +23,20 @@ export function registerGameEvents(io, socket){
     const validMoves = validateMoveAt(src, stateToRoom[`${roomId}`].gameState, rooms.get(roomId), des);
     
     if (validMoves.includes(des)){
+      const gs = stateToRoom[`${roomId}`].gameState;
+
+      const movingWhitePawn = isPiece(gs.WHITE_PAWNS, src) == 1n;
+      const movingBlackPawn = isPiece(gs.BLACK_PAWNS, src) == 1n;
+      const enPawn = gs.twoSqPawn.length ? gs.twoSqPawn[0] : -1;
+      const enRow = enPawn != -1 ? Math.floor(enPawn / 8) : -1;
+      const enemyPawnBoard = movingWhitePawn ? gs.BLACK_PAWNS : gs.WHITE_PAWNS;
+
+      const isEnPassant = enPawn != -1 && (movingWhitePawn || movingBlackPawn) && des == (movingWhitePawn ? enPawn + 8 : enPawn - 8) &&
+        isPiece(gs.BLACK_WHITE, des) == 0n && Math.floor(src / 8) == enRow && Math.abs((src % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn) == 1n;
+      const isTwoSquarePawn = (movingWhitePawn || movingBlackPawn) && Math.abs(des - src) == 16;
+
+      gs.twoSqPawn.length = 0;
+      if (isTwoSquarePawn) gs.twoSqPawn.push(des);
 
       updateBitAfterMove(src, des, stateToRoom[`${roomId}`].gameState);
       console.log('apply move immited from the  server');
@@ -111,7 +125,7 @@ export function registerGameEvents(io, socket){
         io.sockets.in(roomId).emit('stalemate', rooms.get(roomId).turn);
       }
      
-      const isCheckMate = checkCheckMate(gameState, rooms.get(roomId));
+      const isCheckMate = checkCheckMate(stateToRoom[roomId].gameState, rooms.get(roomId));
       console.log('  this is the check mate  ,  ', isCheckMate); 
       if (isCheckMate){
         io.sockets.in(roomId).emit('checkmate', rooms.get(roomId).turn);
@@ -179,11 +193,28 @@ export function registerGameEvents(io, socket){
     }
 
     io.sockets.in(roomId).emit('promote for opp', color, promoDes, piece);
+    stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS = stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS | stateToRoom[`${roomId}`].gameState.BLACK_KING | stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS | stateToRoom[`${roomId}`].gameState.BLACK_PAWNS | stateToRoom[`${roomId}`].gameState.BLACK_QUEEN | stateToRoom[`${roomId}`].gameState.BLACK_ROOKS;
+    stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS = stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS | stateToRoom[`${roomId}`].gameState.WHITE_KING | stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS | stateToRoom[`${roomId}`].gameState.WHITE_PAWNS | stateToRoom[`${roomId}`].gameState.WHITE_QUEEN | stateToRoom[`${roomId}`].gameState.WHITE_ROOKS;
+    stateToRoom[`${roomId}`].gameState.BLACK_WHITE = stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS | stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS;
   })
 
-  socket.on('i am out', (color, id)=>{
+  socket.on('i am out', (color, roomId)=>{
     rooms.get(id).gameOn = false;
     rooms.get(id).winner = color == 'white'? 'black': 'white';
     io.sockets.in(id).emit('player left', color == 'white'? 'black': 'white');
+  })
+
+  socket.on('en passant', (color, roomId, enPawnDes)=>{
+    if (color == 'white'){
+      stateToRoom[`${roomId}`].gameState.WHITE_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_PAWNS), enPawnDes, 0);
+      console.log(' white en passant')
+    }
+    else if (color == 'black'){
+      stateToRoom[`${roomId}`].gameState.BLACK_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_PAWNS), enPawnDes, 0);
+      console.log(' black en passant')
+    }
+    stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS = stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS | stateToRoom[`${roomId}`].gameState.BLACK_KING | stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS | stateToRoom[`${roomId}`].gameState.BLACK_PAWNS | stateToRoom[`${roomId}`].gameState.BLACK_QUEEN | stateToRoom[`${roomId}`].gameState.BLACK_ROOKS;
+    stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS = stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS | stateToRoom[`${roomId}`].gameState.WHITE_KING | stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS | stateToRoom[`${roomId}`].gameState.WHITE_PAWNS | stateToRoom[`${roomId}`].gameState.WHITE_QUEEN | stateToRoom[`${roomId}`].gameState.WHITE_ROOKS;
+    stateToRoom[`${roomId}`].gameState.BLACK_WHITE = stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS | stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS;
   })
 };

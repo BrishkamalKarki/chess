@@ -324,7 +324,6 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
       if (possibleSqs.includes(clickedDes)){
         movePiece();
-        possibleSqs.clear();
       }
       // turn = turn == 'white' ? 'black' : 'white';
     }
@@ -468,6 +467,18 @@ function updateBitAfterMove(src, des){
 let promoting = false; 
 function animate(timestamp){ // animating the piece move
   if (frame >= 10){
+    const movingWhitePawn = isPiece(gameState.WHITE_PAWNS, clickedSrc);
+    const movingBlackPawn = isPiece(gameState.BLACK_PAWNS, clickedSrc);
+    const movedPawn = movingWhitePawn || movingBlackPawn;
+
+    const enPawn = gameState.twoSqPawn.length? gameState.twoSqPawn[0] : -1;
+
+    const enRow = enPawn != -1 ? Math.floor(enPawn / 8) : -1;
+    const enemyPawnBoard = movingWhitePawn? gameState.BLACK_PAWNS : gameState.WHITE_PAWNS;
+
+    const enPassantCapture = enPawn != -1 && movedPawn && !isPiece(gameState.BLACK_WHITE, clickedDes) && clickedDes == (movingWhitePawn ? enPawn + 8 : enPawn - 8) &&
+     Math.floor(clickedSrc / 8) == enRow && Math.abs((clickedSrc % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn);
+
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
     console.log('king moved from ', clickedSrc, ' ', clickedDes)
@@ -525,6 +536,34 @@ function animate(timestamp){ // animating the piece move
         chessPieces.drawAllPieces();
       }
     }
+
+    if (enPassantCapture){
+      if (movingWhitePawn){
+        gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), enPawn, 0);
+        socket.emit('en passant', 'black', room.id, enPawn);
+      }
+      else{
+        gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), enPawn, 0);
+        socket.emit('en passant', 'white', room.id, enPawn);
+      }
+
+      chessPieces.updateSquaresInfo();
+      chessPieces.updatePieceToBB();
+      board.draw();
+      chessPieces.drawAllPieces();
+    }
+
+    gameState.twoSqPawn.length = 0;
+
+    if((movingWhitePawn || movingBlackPawn) && Math.abs(clickedDes - clickedSrc) == 16){
+      gameState.twoSqPawn.push(clickedDes);
+    }
+
+    gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+    gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+    gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+
+    console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
     checkCastleUtils(turn, clickedSrc, clickedDes);
     if (!promoting)
     turn = turn == 'white' ? 'black' : 'white';
@@ -541,6 +580,7 @@ function animate(timestamp){ // animating the piece move
       sessionStorage.setItem('by', 'StaleMate');
       navigateTo(pagesRoutes.winner);
     }
+
     clickedDes = null;
     clickedSrc = null;
     chessPieces.updateSquaresInfo();

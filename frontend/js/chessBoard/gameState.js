@@ -43,6 +43,8 @@
       this.justCastled = false;
       this.whiteKMoved = false;
       this.blackKMoved = false;
+      this.twoSqPawn = [];
+      this.clickedPiece = '';
     }
   }
 
