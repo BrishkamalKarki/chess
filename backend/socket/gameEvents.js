@@ -9,22 +9,22 @@ import { gameState } from "./configEvents.js";
 function getCp(org){return org};
 function isPiece(of, at){
   return ((of >> BigInt(at)) & 1n);
-}
+} 
+
 function replaceBit(of, at, by){
-  if (by)
+  if (by) 
     return ((of | (BigInt(1) << BigInt(at))));
   else 
     return ((of & ~(BigInt(1) << BigInt(at))));
 }
 
 export function registerGameEvents(io, socket){
-  socket.on('apply move', (roomId, userId, src, des, callback)=>{ 
-    console.log('emit emmited apply move from ', roomId, userId, src, des);
+  socket.on('apply move', (roomId, userId, src, des, callback)=>{
+    console.log('emit emmited apply move from ', roomId, userId, src, des); 
     const validMoves = validateMoveAt(src, stateToRoom[`${roomId}`].gameState, rooms.get(roomId), des);
     
     if (validMoves.includes(des)){
       const gs = stateToRoom[`${roomId}`].gameState;
-
       const movingWhitePawn = isPiece(gs.WHITE_PAWNS, src) == 1n;
       const movingBlackPawn = isPiece(gs.BLACK_PAWNS, src) == 1n;
       const enPawn = gs.twoSqPawn.length ? gs.twoSqPawn[0] : -1;
@@ -39,6 +39,17 @@ export function registerGameEvents(io, socket){
       if (isTwoSquarePawn) gs.twoSqPawn.push(des);
 
       updateBitAfterMove(src, des, stateToRoom[`${roomId}`].gameState);
+
+      if (gs.moves.length >= 6) {gs.moves.pop(); gs.moves.pop();};
+      gs.moves.push([src, des]);
+      if (gs.moves.length == 6){
+        const m = gs.moves;
+        if ((m[0][0] == m[2][1] && m[2][1] == m[4][0]) && (m[0][1] == m[2][0] && m[2][0] == m[4][1])){
+          if ((m[1][0] == m[3][1] && m[3][1] == m[5][0]) && (m[1][1] == m[3][0] && m[3][0] == m[5][1]))
+            io.sockets.in(roomId).emit('threefold repetition');
+        }
+      }
+      
       console.log('apply move immited from the  server');
       io.sockets.in(roomId).emit('apply move', src, des);
       callback(
@@ -78,40 +89,6 @@ export function registerGameEvents(io, socket){
           stateToRoom[`${roomId}`].gameState.blackKRookMoved = true;
         }
       }
-      
-      // if (((getCp(stateToRoom[`${roomId}`].gameState.WHITE_KING) >> BigInt(des)) & 1n) && des - src == 2){
-      //   stateToRoom[`${roomId}`].gameState.justCastled = false;
-      //   stateToRoom[`${roomId}`].gameState.whiteCastled = true;
-      //   if (des == 2){
-      //     updateBitAfterMove(0, 3, stateToRoom[`${roomId}`].gameState);
-      //     io.sockets.in(roomId).emit('castle', {
-      //       src: 0, des: 3
-      //     })
-      //   }
-      //   else{
-      //     updateBitAfterMove(7, 5, stateToRoom[`${roomId}`].gameState);
-      //     io.sockets.in(roomId).emit('castle', {
-      //       src: 7, des: 5
-      //     })
-      //   }
-      // }
-      // else if (((getCp(stateToRoom[`${roomId}`].gameState.BLACK_KING) >> BigInt(des)) & 1n) && des - src == 2){
-      //   stateToRoom[`${roomId}`].gameState.justCastled = false;
-      //   stateToRoom[`${roomId}`].gameState.blackCastled = true;
-      //   if (des == 58){
-      //     updateBitAfterMove(56, 59, stateToRoom[`${roomId}`].gameState);
-      //     io.sockets.in(roomId).emit('castle', {
-      //       src: 56, des: 59
-      //     })
-      //   }
-      //   else{
-      //     updateBitAfterMove(63, 61, stateToRoom[`${roomId}`].gameState);
-      //     io.sockets.in(roomId).emit('castle', {
-      //       src: 63, des: 61 
-      //     })
-      //   }
-      // }
-      
       
       if (isPromoted(src, des, stateToRoom[`${roomId}`].gameState)){
         socket.emit('promote', rooms.get(roomId).turn, des);
@@ -203,6 +180,10 @@ export function registerGameEvents(io, socket){
     rooms.get(id).winner = color == 'white'? 'black': 'white';
     io.sockets.in(id).emit('player left', color == 'white'? 'black': 'white');
   })
+
+  socket.on('insuffMats', (roomId)=>{
+    io.sockets.in(roomId).emit('insuffMats');
+  });
 
   socket.on('en passant', (color, roomId, enPawnDes)=>{
     if (color == 'white'){

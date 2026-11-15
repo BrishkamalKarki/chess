@@ -568,4 +568,56 @@ function getPoint(des){
   return pieceTopoints[piece[1]];
 }
 
-export {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate};
+function howMany(bB){
+  let n = 0;
+  for (let i = 0; i <= 63; i++){
+    if (((bB >> BigInt(i)) & 1n) == 1n) n++;
+  }
+  return n;
+}
+
+function isInsuffMats(gs){
+  const pieceToBitBoard = buildPieceToBitBoard(gs);
+  let white = {'K': 0, 'N': 0, 'P': 0, 'R': 0, 'B': 0, 'Q': 0};
+  let black = {'K': 0, 'N': 0, 'P': 0, 'R': 0, 'B': 0, 'Q': 0};;
+  for (const [key, value] of Object.entries(pieceToBitBoard)){
+    if (key == 'bPl' || key == 'wPl') continue;
+    if (value == 0b0n) continue;
+    const p = value[1];
+    if (key[0] == 'w'){
+      if (p == 'K') white.K++;
+      if (p == 'Q') white.Q++;
+      if (p == 'N') white.N = howMany(value);
+      if (p == 'R') white.R = howMany(value);
+      if (p == 'B') white.B = howMany(value);
+      if (p == 'P') white.P = howMany(value);
+    }
+    else if (key[0] == 'b'){
+      if (p == 'K') black.K++;
+      if (p == 'Q') black.Q++;
+      if (p == 'N') black.N = howMany(value);
+      if (p == 'R') black.R = howMany(value);
+      if (p == 'B') black.B = howMany(value);
+      if (p == 'P') black.P = howMany(value); 
+    }
+  }
+
+  if (white.N == 0 &&  white.K == 1 && white.B == 1 && white.R == 0 && white.P == 0 && white.Q == 0 &&
+    black.N == 0 &&  black.K == 1 && black.B == 0 && black.R == 0 && black.P == 0 && black.Q == 0)  return true;
+
+  if (white.N == 0 &&  white.K == 1 && white.B == 0 && white.R == 0 && white.P == 0 && white.Q == 0 &&
+    black.N == 0 &&  black.K == 1 && black.B == 1 && black.R == 0 && black.P == 0 && black.Q == 0)  return true;
+  
+  if (white.N == 1 &&  white.K == 1 && white.B == 0 && white.R == 0 && white.P == 0 && white.Q == 0 &&
+    black.N == 0 &&  black.K == 1 && black.B == 0 && black.R == 0 && black.P == 0 && black.Q == 0)  return true;
+
+  if (white.N == 0 &&  white.K == 1 && white.B == 0 && white.R == 0 && white.P == 0 && white.Q == 0 &&
+    black.N == 1 &&  black.K == 1 && black.B == 0 && black.R == 0 && black.P == 0 && black.Q == 0)  return true;
+
+  if (white.N == 0 &&  white.K == 1 && white.B == 0 && white.R == 0 && white.P == 0 && white.Q == 0 &&
+    black.N == 0 &&  black.K == 1 && black.B == 0 && black.R == 0 && black.P == 0 && black.Q == 0)  return true;
+
+  return false;
+}
+
+export {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate, isInsuffMats};

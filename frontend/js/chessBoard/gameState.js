@@ -45,6 +45,7 @@
       this.blackKMoved = false;
       this.twoSqPawn = [];
       this.clickedPiece = '';
+      this.moves = [];
     }
   }
 

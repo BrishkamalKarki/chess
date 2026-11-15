@@ -2,7 +2,7 @@ import GameState from './gameState.js'
 import {getChessPieces} from './resourceLoader.js'
 import socket from '../socket/socket.js';
 import {getGameVars} from './gameVars.js'
-import {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate} from '../engine/movesValidator.js'
+import {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate, isInsuffMats} from '../engine/movesValidator.js'
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
 const canvas = document.getElementById("chessBoard");
@@ -28,53 +28,92 @@ console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || room
 
 let whiteMin, blackMin, whiteSec, blackSec, whiteTimeOut = false, blackTimeOut = false, st = false, sT;
 socket.on('start time', (serverTime)=>{
-  sT = serverTime;
-  st = true;
+  console.log(' the tiemr is started')
+  let whiteMin = serverTime.white.min;
+  let whiteSec = serverTime.white.sec;
+  let blackMin = serverTime.black.min;
+  let blackSec = serverTime.black.sec;
+  setInterval(()=>{
+    if (!whiteTimeOut && turn == 'white'){
+      whiteSec -= 1;
+      if (whiteSec == -1){
+        if (whiteMin == 0) {whiteTimeOut = true; whiteSec = 0;}
+        else{
+          whiteMin -= 1;
+          whiteSec = 59;
+        }
+      }
+    }
+    if (playedAs == 'white')
+      document.getElementById("youTime").textContent = `${whiteMin}:${whiteSec}`;
+    else
+      document.getElementById("oppTime").textContent = `${whiteMin}:${whiteSec}`;
+  }, 1000);
+
+  setInterval(()=>{
+    if (!blackTimeOut && turn == 'black'){
+      blackSec -= 1;
+      if (blackSec == -1){
+        if (blackMin == 0){
+          blackSec = 0;
+          blackTimeOut = true;
+        } 
+        else{
+          blackMin -= 1;
+          blackSec = 59;
+        }
+      }
+    }
+    if (playedAs == 'black')
+      document.getElementById("youTime").textContent = `${blackMin}:${blackSec}`;
+    else
+      document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
+  }, 1000);
 });
 
-if (room != null){
-  whiteMin = room.gameTime - 1;
-  whiteSec = 60;
-  if (room.timerOn){
-    setInterval(()=>{
-      if (!whiteTimeOut && room.turn == 'white' && st){
-        whiteSec -= 1;
-        if (whiteSec == 0){
-          if (whiteMin == 0) whiteTimeOut = true;
-          else{
-            whiteMin -= 1;
-            whiteSec = 59;
-          }
-        }
-      }
-      if (playedAs == 'white')
-        document.getElementById("youTime").textContent = `${whiteMin}:${whiteSec}`;
-      else
-        document.getElementById("oppTime").textContent = `${whiteMin}:${whiteSec}`;
-    }, 1000);
-  }
+// if (room != null){
+//   whiteMin = room.gameTime - 1;
+//   whiteSec = 59;
+//   if (room.timerOn){
+//     setInterval(()=>{
+//       if (!whiteTimeOut && room.turn == 'white' && st){
+//         whiteSec -= 1;
+//         if (whiteSec == -1){
+//           if (whiteMin == 0) whiteTimeOut = true;
+//           else{
+//             whiteMin -= 1;
+//             whiteSec = 59;
+//           }
+//         }
+//       }
+//       if (playedAs == 'white')
+//         document.getElementById("youTime").textContent = `${whiteMin}:${whiteSec}`;
+//       else
+//         document.getElementById("oppTime").textContent = `${whiteMin}:${whiteSec}`;
+//     }, 1000);
+//   }
 
-  blackMin = room.gameTime - 1;
-  blackSec = 60;
-  if (room.timerOn){
-    setInterval(()=>{
-      if (!blackTimeOut && room.turn == 'black' && st){
-        blackSec -= 1;
-        if (blackSec == 0){
-          if (blackMin == 0) blackTimeOut = true;
-          else{
-            blackMin -= 1;
-            blackSec = 59;
-          }
-        }
-      }
-      if (playedAs == 'black')
-        document.getElementById("youTime").textContent = `${blackMin}:${blackSec}`;
-      else
-        document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
-    }, 1000);
-  }
-}
+//   blackMin = room.gameTime - 1;
+//   blackSec = 59;
+//   if (room.timerOn){
+//     setInterval(()=>{
+//       if (!blackTimeOut && room.turn == 'black' && st){
+//         blackSec -= 1;
+//         if (blackSec == -1){
+//           if (blackMin == 0) blackTimeOut = true;
+//           else{
+//             blackMin -= 1;
+//             blackSec = 59;
+//           }
+//         }
+//       }
+//       if (playedAs == 'black')
+//         document.getElementById("youTime").textContent = `${blackMin}:${blackSec}`;
+//       else
+//         document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
+//     }, 1000);
+//   }
+// }
 
 class ChessBoard{
   constructor(){
@@ -470,17 +509,28 @@ function animate(timestamp){ // animating the piece move
     const movingWhitePawn = isPiece(gameState.WHITE_PAWNS, clickedSrc);
     const movingBlackPawn = isPiece(gameState.BLACK_PAWNS, clickedSrc);
     const movedPawn = movingWhitePawn || movingBlackPawn;
-
     const enPawn = gameState.twoSqPawn.length? gameState.twoSqPawn[0] : -1;
-
     const enRow = enPawn != -1 ? Math.floor(enPawn / 8) : -1;
     const enemyPawnBoard = movingWhitePawn? gameState.BLACK_PAWNS : gameState.WHITE_PAWNS;
-
     const enPassantCapture = enPawn != -1 && movedPawn && !isPiece(gameState.BLACK_WHITE, clickedDes) && clickedDes == (movingWhitePawn ? enPawn + 8 : enPawn - 8) &&
      Math.floor(clickedSrc / 8) == enRow && Math.abs((clickedSrc % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn);
 
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
+    if (room == null){
+      if (gameState.moves.length >= 6) {gameState.moves.pop(); gameState.moves.pop();};
+      gameState.moves.push([clickedSrc, clickedDes]);
+      if (gameState.moves.length == 6){
+        const m = gameState.moves;
+        if (m[0][0] == m[2][1] == m[4][0] && m[0][1] == m[2][0] == m[4][1]){
+          if (m[1][0] == m[3][1] == m[5][0] && m[1][1] == m[3][0] == m[5][1]){
+            sessionStorage.setItem('turn', 'Nobody');
+            sessionStorage.setItem('by', 'ThreeFold Repetetion');
+            navigateTo(pagesRoutes.winner);   
+          }
+        }
+      }
+    }
     console.log('king moved from ', clickedSrc, ' ', clickedDes)
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
@@ -563,6 +613,16 @@ function animate(timestamp){ // animating the piece move
     gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
     gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
 
+    if (isInsuffMats(gameState)){
+      if (room == null){
+        sessionStorage.setItem('turn', 'Nobody');
+        sessionStorage.setItem('by', 'Insufficient Materials');
+        navigateTo(pagesRoutes.winner);   
+      }
+      else{
+        socket.emit('insuffMats', room.id);
+      }
+    }
     console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
     checkCastleUtils(turn, clickedSrc, clickedDes);
     if (!promoting)
@@ -769,6 +829,12 @@ socket.on('draw rjct from server', ()=>{
   if (drawContainer) drawContainer.remove();
 })
 
+socket.on('threefold repetition', ()=>{
+  sessionStorage.setItem('turn', 'Nobody');
+  sessionStorage.setItem('by', 'ThreeFold Repetetion');
+  navigateTo(pagesRoutes.winner);   
+})
+
 socket.on('player left', (color)=>{
   if (color != playedAs) return;
   sessionStorage.setItem('turn', color);
@@ -784,11 +850,17 @@ socket.on('resign from server', (color, success)=>{
   }
 });
 
+socket.on('insuffMats', (t, des)=>{
+  sessionStorage.setItem('turn', 'Nobody');
+  sessionStorage.setItem('by', 'Insufficient Materials');
+  navigateTo(pagesRoutes.winner); 
+});
+
 socket.on('promote', (t, des)=>{
   clickedDes = des; 
   turn = t; 
   promoteFunc(); 
-});
+});  
 
 socket.on('promote for opp', (t, promoDes, piece)=>{
   if (playedAs == t) return;

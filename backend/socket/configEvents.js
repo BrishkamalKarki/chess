@@ -55,16 +55,14 @@ function registerSettingEvents(io, socket){
         room.player2online = true;
         room.player2joined = true;
         gameState = new GameState(roomId);
-        timer = new Timer(gameState);
-        timer.startTimer();
         // room.gameState = gameState;
+        timer = new Timer(gameState, socket, io);
         stateToRoom[`${roomId}`] = {gameState: gameState, timer: timer};
-        io.sockets.in(roomId).emit('start time', timer.getTime());
       }
-
+      
       console.log(rooms)
       socket.join(roomId);
-      return callback({
+      callback({
         success: true,
         message: 'SUCCEFULLY PASSED GAME SETTINGS',
         timerOn: room.timerOn,
@@ -72,6 +70,12 @@ function registerSettingEvents(io, socket){
         playedAs: playedAs,
         room: room
       })
+
+      if (room.timerOn && room.gameOn){
+        timer.startTimer();
+        console.log(' the timer event is same')
+        io.sockets.in(roomId).emit('start time', timer.getTime());
+      }
     }
     else{
       return callback({
