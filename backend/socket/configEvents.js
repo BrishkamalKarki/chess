@@ -56,7 +56,7 @@ function registerSettingEvents(io, socket){
         room.player2joined = true;
         gameState = new GameState(roomId);
         // room.gameState = gameState;
-        timer = new Timer(gameState, socket, io);
+        timer = new Timer(roomId, gameState, io);
         stateToRoom[`${roomId}`] = {gameState: gameState, timer: timer};
       }
       

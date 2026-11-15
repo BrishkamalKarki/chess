@@ -25,14 +25,17 @@ const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId,
 let turn = 'white';
 console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId, room)
 
-
-let whiteMin, blackMin, whiteSec, blackSec, whiteTimeOut = false, blackTimeOut = false, st = false, sT;
+let whiteMin;
+let whiteSec;
+let blackMin;
+let blackSec;
+let whiteTimeOut = false, blackTimeOut = false, st = false, sT;
 socket.on('start time', (serverTime)=>{
   console.log(' the tiemr is started')
-  let whiteMin = serverTime.white.min;
-  let whiteSec = serverTime.white.sec;
-  let blackMin = serverTime.black.min;
-  let blackSec = serverTime.black.sec;
+  whiteMin = serverTime.white.min;
+  whiteSec = serverTime.white.sec;
+  blackMin = serverTime.black.min;
+  blackSec = serverTime.black.sec;
   setInterval(()=>{
     if (!whiteTimeOut && turn == 'white'){
       whiteSec -= 1;
@@ -70,6 +73,13 @@ socket.on('start time', (serverTime)=>{
       document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
   }, 1000);
 });
+
+socket.on('sync time', (serverTime)=>{
+  whiteMin = serverTime.white.min;
+  whiteSec = serverTime.white.sec;
+  blackMin = serverTime.black.min;
+  blackSec = serverTime.black.sec;
+})
 
 // if (room != null){
 //   whiteMin = room.gameTime - 1;
@@ -849,6 +859,12 @@ socket.on('resign from server', (color, success)=>{
     navigateTo(pagesRoutes.winner);
   }
 });
+
+socket.on('timeOut', (winner)=>{
+  sessionStorage.setItem('turn', winner);
+  sessionStorage.setItem('by', 'TimeOut');
+  navigateTo(pagesRoutes.winner); 
+})
 
 socket.on('insuffMats', (t, des)=>{
   sessionStorage.setItem('turn', 'Nobody');
