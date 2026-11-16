@@ -29,33 +29,34 @@ document.getElementById("play")?.addEventListener('click', async ()=>{
   console.log(gameMode)
   if (gameMode == 'multiPlayer'){
     const responce = await socket.timeout(5000).emitWithAck('save settings', roomCreateId || roomJoinId, userId, timerOn, playedAs, gameTime);
-      if (responce.success){
-        sessionStorage.setItem('roomCreateId', roomCreateId);
-        sessionStorage.setItem('roomJoinId', roomJoinId);
-        sessionStorage.setItem('userId', userId);
-        sessionStorage.setItem('room', responce.room);
-        navigateTo(pagesRoutes.arena);
-      }else{
-        console.log(responce.message);
-      }
-    }
-    else{
+    if (responce.success){
+      sessionStorage.setItem('roomCreateId', roomCreateId);
+      sessionStorage.setItem('roomJoinId', roomJoinId);
+      sessionStorage.setItem('userId', userId);
+      sessionStorage.setItem('room', responce.room);
       navigateTo(pagesRoutes.arena);
     }
-  });
-  
-  document.getElementById("dec")?.addEventListener('click', ()=>{
-    let gameTime = Number(document.getElementById("timeValue").textContent);
-    if (gameTime >= 2)
-      document.getElementById("timeValue").textContent = `${gameTime-1}`;
-  });
-  
-  document.getElementById("inc")?.addEventListener('click', ()=>{
-    let gameTime = Number(document.getElementById("timeValue").textContent);
-    document.getElementById("timeValue").textContent = `${gameTime+1}`;
-  });
-
-  if (sessionStorage.getItem('gameMode') != 'multiPlayer'){
-    const stepperEl = document.getElementById('stepper');
-    stepperEl.remove();
+    else{
+      console.log(responce.message);
+    }
   }
+  else{
+    navigateTo(pagesRoutes.arena);
+  }
+});
+  
+document.getElementById("dec")?.addEventListener('click', ()=>{
+  let gameTime = Number(document.getElementById("timeValue").textContent);
+  if (gameTime >= 2)
+    document.getElementById("timeValue").textContent = `${gameTime-1}`;
+});
+
+document.getElementById("inc")?.addEventListener('click', ()=>{
+  let gameTime = Number(document.getElementById("timeValue").textContent);
+  document.getElementById("timeValue").textContent = `${gameTime+1}`;
+});
+
+if (sessionStorage.getItem('gameMode') != 'multiPlayer'){
+  const stepperEl = document.getElementById('stepper');
+  stepperEl.remove();
+}

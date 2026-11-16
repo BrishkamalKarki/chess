@@ -5,6 +5,8 @@ import {getGameVars} from './gameVars.js'
 import {validateMoveAt, checkCastleUtils, isPromoted, getPoint, checkCheckMate, checkStaleMate, isInsuffMats} from '../engine/movesValidator.js'
 import navigateTo, {pagesRoutes} from '../utils/navigator.js'
 
+import createBot from '../../bot/bot.js';
+
 const canvas = document.getElementById("chessBoard");
 const ctx = canvas.getContext('2d');
 // default canvas width and height is 300 and 150 which is way smaller than the px height of the viewport canvas set in css property
@@ -14,16 +16,25 @@ const pxCanvas = Math.floor((canvas.clientWidth * (window.devicePixelRatio || 1)
 canvas.height = pxCanvas;
 canvas.width = pxCanvas;
 
-
 let mouseClicked = false;
 let mouseCoord = []; // keeping track of mouse coord
 let clickedSrc = null;
 let clickedDes = null;
 let animationOn = false;
 const gameVars = await getGameVars();
-const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, room} = gameVars;
+const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, id} = gameVars;
 let turn = 'white';
-console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId, room)
+console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId)
+
+let bot, getBestMove;
+if (gameMode != 'multiPlayer'){
+  bot = await createBot({
+    locateFile: () => '/bot/bot.wasm'
+  });
+  getBestMove = bot.cwrap('getBestMove', 'number', []);
+}
+
+console.log(getBestMove(), ' is the best move');
 
 let whiteMin;
 let whiteSec;
@@ -80,50 +91,6 @@ socket.on('sync time', (serverTime)=>{
   blackMin = serverTime.black.min;
   blackSec = serverTime.black.sec;
 })
-
-// if (room != null){
-//   whiteMin = room.gameTime - 1;
-//   whiteSec = 59;
-//   if (room.timerOn){
-//     setInterval(()=>{
-//       if (!whiteTimeOut && room.turn == 'white' && st){
-//         whiteSec -= 1;
-//         if (whiteSec == -1){
-//           if (whiteMin == 0) whiteTimeOut = true;
-//           else{
-//             whiteMin -= 1;
-//             whiteSec = 59;
-//           }
-//         }
-//       }
-//       if (playedAs == 'white')
-//         document.getElementById("youTime").textContent = `${whiteMin}:${whiteSec}`;
-//       else
-//         document.getElementById("oppTime").textContent = `${whiteMin}:${whiteSec}`;
-//     }, 1000);
-//   }
-
-//   blackMin = room.gameTime - 1;
-//   blackSec = 59;
-//   if (room.timerOn){
-//     setInterval(()=>{
-//       if (!blackTimeOut && room.turn == 'black' && st){
-//         blackSec -= 1;
-//         if (blackSec == -1){
-//           if (blackMin == 0) blackTimeOut = true;
-//           else{
-//             blackMin -= 1;
-//             blackSec = 59;
-//           }
-//         }
-//       }
-//       if (playedAs == 'black')
-//         document.getElementById("youTime").textContent = `${blackMin}:${blackSec}`;
-//       else
-//         document.getElementById("oppTime").textContent = `${blackMin}:${blackSec}`;
-//     }, 1000);
-//   }
-// }
 
 class ChessBoard{
   constructor(){
@@ -338,7 +305,7 @@ canvas.addEventListener('pointerdown', async (event)=>{
 
       if (playedAs == sq.pieceClr){
         console.log(' i got in here')
-        if (room != null){
+        if (gameMode == 'multiPlayer'){
           if (turn != playedAs) return;
         }
         clickedSrc = sq.sqNo;
@@ -355,8 +322,8 @@ canvas.addEventListener('pointerdown', async (event)=>{
     }
   }
   if (clickedDes != null && clickedSrc != null){
-    if (room != null){ // if online then ask for the server for the valid moves
-      const resp = await socket.timeout(2000).emitWithAck('apply move', room.id, userId, clickedSrc, clickedDes);
+    if (gameMode == 'multiPlayer'){ // if online then ask for the server for the valid moves
+      const resp = await socket.timeout(2000).emitWithAck('apply move', id, userId, clickedSrc, clickedDes);
       if (!resp.success){
         console.log('invalid move');
         clickedDes = null;
@@ -527,7 +494,7 @@ function animate(timestamp){ // animating the piece move
 
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
-    if (room == null){
+    if (gameMode != 'multiPlayer'){
       if (gameState.moves.length >= 6) {gameState.moves.pop(); gameState.moves.pop();};
       gameState.moves.push([clickedSrc, clickedDes]);
       if (gameState.moves.length == 6){
@@ -553,7 +520,7 @@ function animate(timestamp){ // animating the piece move
     chessPieces.drawAllPieces();
     animationOn = false;
     const promoted = isPromoted(clickedSrc, clickedDes, gameState);
-    if (promoted && room == null){
+    if (promoted && gameMode != 'multiPlayer'){
       promoteFunc();
     }
     else{
@@ -600,11 +567,11 @@ function animate(timestamp){ // animating the piece move
     if (enPassantCapture){
       if (movingWhitePawn){
         gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), enPawn, 0);
-        socket.emit('en passant', 'black', room.id, enPawn);
+        socket.emit('en passant', 'black', id, enPawn);
       }
       else{
         gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), enPawn, 0);
-        socket.emit('en passant', 'white', room.id, enPawn);
+        socket.emit('en passant', 'white', id, enPawn);
       }
 
       chessPieces.updateSquaresInfo();
@@ -624,13 +591,13 @@ function animate(timestamp){ // animating the piece move
     gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
 
     if (isInsuffMats(gameState)){
-      if (room == null){
+      if (gameMode != 'multiPlayer'){
         sessionStorage.setItem('turn', 'Nobody');
         sessionStorage.setItem('by', 'Insufficient Materials');
         navigateTo(pagesRoutes.winner);   
       }
       else{
-        socket.emit('insuffMats', room.id);
+        socket.emit('insuffMats', id);
       }
     }
     console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
@@ -706,13 +673,13 @@ socket.on('stalemate', (looser)=>{
 })
 
 document.getElementById('resign')?.addEventListener('click', ()=>{
-  if (room != null)
-    socket.emit('resignation', playedAs, room.id);
+  if (gameMode == 'multiPlayer')
+    socket.emit('resignation', playedAs, id);
 });
 
 document.getElementById('draw')?.addEventListener('click', ()=>{
-  if (room != null)
-    socket.emit('draw', playedAs, room.id);
+  if (gameMode == 'multiPlayer')
+    socket.emit('draw', playedAs, id);
 });
 
 let drawShown = false;
@@ -782,11 +749,11 @@ socket.on('draw', (color)=>{
   drawEl.appendChild(drawContainer);
   document.getElementById('drawAccpt').addEventListener('click', ()=>{
     console.log('clicked the  draw button')
-    socket.emit('accept draw', playedAs, room.id);
+    socket.emit('accept draw', playedAs, id);
   })
   
   document.getElementById('drawRjct').addEventListener('click', ()=>{
-    socket.emit('reject draw', playedAs, room.id);
+    socket.emit('reject draw', playedAs, id);
   })
   draw.addEventListener('mouseenter', () => {
     draw.style.backgroundColor = '#5b6a66';
@@ -818,7 +785,7 @@ socket.on('draw accpt from server', ()=>{
   navigateTo(pagesRoutes.winner);
 })
 
-if (room== null){
+if (gameMode != 'multiPlayer'){
   const drawEl = document.getElementById('draw');
   drawEl.remove();
   document.getElementById('resign').addEventListener('click', ()=>{
@@ -829,8 +796,16 @@ if (room== null){
 }
 
 document.getElementById('backToMenu').addEventListener('click', ()=>{
-  socket.emit('i am out', playedAs, room.id);
-  navigateTo(pagesRoutes.home);
+  if (gameMode == 'multiPlayer')
+    socket.emit('i am out', playedAs, id);
+  else{
+    navigateTo(pagesRoutes.home);
+  }
+})
+
+window.addEventListener('beforeunload', (event)=>{
+  event.preventDefault();
+  event.returnValue = '...';
 })
 
 socket.on('draw rjct from server', ()=>{
@@ -984,7 +959,7 @@ function promoteFunc(){
         gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), promoDes, 0);
       }
       
-      socket.emit('promote option', room.id, playedAs, promoDes, clicked);
+      socket.emit('promote option', id, playedAs, promoDes, clicked);
 
       gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
       gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
@@ -1006,7 +981,7 @@ function promoteFunc(){
   divEl.append(Q, R, B, N);
   promotionOptEl.appendChild(divEl);
 
-  if (room != null){
+  if (gameMode == 'multiPlayer'){
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
     board.draw();

@@ -176,9 +176,9 @@ export function registerGameEvents(io, socket){
   })
 
   socket.on('i am out', (color, roomId)=>{
-    rooms.get(id).gameOn = false;
-    rooms.get(id).winner = color == 'white'? 'black': 'white';
-    io.sockets.in(id).emit('player left', color == 'white'? 'black': 'white');
+    rooms.get(roomId).gameOn = false;
+    rooms.get(roomId).winner = color == 'white'? 'black': 'white';
+    io.sockets.in(roomId).emit('player left', color == 'white'? 'black': 'white');
   })
 
   socket.on('insuffMats', (roomId)=>{

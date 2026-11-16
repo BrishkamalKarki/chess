@@ -57,6 +57,8 @@ function registerSettingEvents(io, socket){
         gameState = new GameState(roomId);
         // room.gameState = gameState;
         timer = new Timer(roomId, gameState, io);
+        room.gameState = gameState;
+        room.timer = timer;
         stateToRoom[`${roomId}`] = {gameState: gameState, timer: timer};
       }
       
@@ -68,7 +70,8 @@ function registerSettingEvents(io, socket){
         timerOn: room.timerOn,
         gameTime: room.gameTime,
         playedAs: playedAs,
-        room: room
+        turn: 'white',
+        id: roomId
       })
 
       if (room.timerOn && room.gameOn){
