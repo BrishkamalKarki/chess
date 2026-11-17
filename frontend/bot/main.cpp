@@ -21,6 +21,8 @@ struct Move {
   int from;
   int to;
   int promotion;
+  int srcPiece;
+  int targetPiece;
 };
 
 gameState gs;
@@ -74,14 +76,14 @@ inline void forPawns(int n, vector<Move>& moves){
         }
         int tar = whatIsAt(des);
         if (!tar) continue;
-        if (gs.turn != (tar/10) && tar != 0) moves.push_back({pos, des, 0});
+        if (gs.turn != (tar/10) && tar != 0) moves.push_back({pos, des, 0, whatIsAt(pos), tar});
       }
       else if (pS == 8){
         int tar = whatIsAt(des);
-        if (!tar) moves.push_back({pos, des, 0}); // for 1 step
+        if (!tar) moves.push_back({pos, des, 0, whatIsAt(pos), tar}); // for 1 step
         else continue;
         int nextDes = des+(gs.turn == 0? 1:-1)*8;
-        if (!whatIsAt(nextDes) && ((row == 1 && !gs.turn) || (row == 6 && gs.turn))) moves.push_back({pos, nextDes, 0}); // for 2 step
+        if (!whatIsAt(nextDes) && ((row == 1 && !gs.turn) || (row == 6 && gs.turn))) moves.push_back({pos, nextDes, 0, whatIsAt(pos), tar}); // for 2 step
       }
     }
   }
@@ -98,8 +100,8 @@ inline void forRooks(int n, vector<Move>& moves){
       for (int i = 1; i <= loopMax[j]; i++){
         int des = pos + step[j] * i;
         int tar = whatIsAt(des);
-        if (tar == 0){moves.push_back({pos, des, 0}); continue;} 
-        if (gs.turn != (tar/10)){moves.push_back({pos, des, 0}); break;}
+        if (tar == 0){moves.push_back({pos, des, 0, whatIsAt(pos), tar}); continue;} 
+        if (gs.turn != (tar/10)){moves.push_back({pos, des, 0, whatIsAt(pos), tar}); break;}
         else break;
       }
     } 
@@ -121,7 +123,7 @@ inline void forKnights(int n, vector<Move>& moves){
       int des = newRow * 8 + newCol;
       if (des < 0 || des > 63) continue;
       int tar = whatIsAt(des);
-      if (tar == 0 || (gs.turn != (tar / 10))) moves.push_back({pos, des, 0}); // if enemy or empty square
+      if (tar == 0 || (gs.turn != (tar / 10))) moves.push_back({pos, des, 0, whatIsAt(pos), tar}); // if enemy or empty square
     }
   }
 }
@@ -141,8 +143,8 @@ inline void forBishops(int n, vector<Move>& moves){
         if (newRow > 7 || newRow < 0 || newCol > 7 || newCol < 0) break;
         int des = newRow * 8 + newCol;
         int tar = whatIsAt(des);
-        if (tar == 0){moves.push_back({pos, des, 0}); continue;} 
-        if (gs.turn != (tar/10)){moves.push_back({pos, des, 0}); break;} // enemy
+        if (tar == 0){moves.push_back({pos, des, 0, whatIsAt(pos), tar}); continue;} 
+        if (gs.turn != (tar/10)){moves.push_back({pos, des, 0, whatIsAt(pos), tar}); break;} // enemy
         else break;
       }
     } 
@@ -171,7 +173,7 @@ inline void forKing(int n, vector<Move>& moves){
 
       int tar = whatIsAt(des);
       if (gs.turn == (tar/10) && tar != 0) continue;
-      if (gs.turn != (tar/10) || tar == 0) moves.push_back({pos, des, 0});
+      if (gs.turn != (tar/10) || tar == 0) moves.push_back({pos, des, 0, whatIsAt(pos), tar});
     }
   }
 }
@@ -185,34 +187,65 @@ vector<Move> moveGenerator(){
   // forQueen(1, moves);
   // forKing(0, moves);
   forPawns(5, moves);
-printf("After pawns: %zu\n", moves.size());
+  printf("After pawns: %zu\n", moves.size());
 
-forKnights(3, moves);
-printf("After knights: %zu\n", moves.size());
+  forKnights(3, moves);
+  printf("After knights: %zu\n", moves.size());
 
-forRooks(4, moves);
-printf("After rooks: %zu\n", moves.size());
+  forRooks(4, moves);
+  printf("After rooks: %zu\n", moves.size());
 
-forBishops(2, moves);
-printf("After bishops: %zu\n", moves.size());
+  forBishops(2, moves);
+  printf("After bishops: %zu\n", moves.size());
 
-forQueen(1, moves);
-printf("After queen: %zu\n", moves.size());
+  forQueen(1, moves);
+  printf("After queen: %zu\n", moves.size());
 
-forKing(0, moves);
-printf("After king: %zu\n", moves.size());
+  forKing(0, moves);
+  printf("After king: %zu\n", moves.size());
   return moves;
 }
 
-int negaMax(){
-  vector<Move> moves = moveGenerator();
-  for (auto& m: moves)
-    printf("from: %d to: %d prom: %d\n", m.from, m.to, m.promotion);
+inline void makeMove(Move& move){
+  int sClr = move.srcPiece/10;
+  int sPis = move.srcPiece%10;
+  int tClr = move.targetPiece/10;
+  int tPis = move.targetPiece%10;
+  gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.from);
+  gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] | (1ULL << move.to);
+  if (move.targetPiece != 0){
+    gs.bitBoards[tClr][tPis] = gs.bitBoards[tClr][tPis] & ~(1ULL << move.to);
+  }
 }
 
-void makeMove(){
+inline void unMakeMove(Move& move){
+  int sClr = move.srcPiece/10;
+  int sPis = move.srcPiece%10;
+  int tClr = move.targetPiece/10;
+  int tPis = move.targetPiece%10;
+  gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] | (1ULL << move.from);
+  gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.to);
+  if (move.targetPiece != 0){
+    gs.bitBoards[tClr][tPis] = gs.bitBoards[tClr][tPis] | (1ULL << move.to);
+  }
+}
+
+int evaluate(){
   
 }
+
+int negaMax(int depth){
+  if (depth == 0) return evaluate();
+  vector<Move> moves = moveGenerator();
+  for (auto& move: moves){
+    makeMove(move);
+    int score = negaMax(gs.depth--);
+    if (score)
+    unMakeMove(move);
+  }
+  return 0;
+}
+
 
 EXTERN // to prevent name mangling
 EMSCRIPTEN_KEEPALIVE // when compiled to wasm to prevent striping the function since it is not called
