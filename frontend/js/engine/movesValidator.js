@@ -21,7 +21,7 @@ function validateMoveAt(pos, gs, t){
 
   const piece = whatIsAt(pos);
   gameState.clickedPiece = piece;
-  console.log(piece, pos, " is the piece clicked and the position where that piece is.")
+  // console.log(piece, pos, " is the piece clicked and the position where that piece is.")
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
     'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
@@ -55,7 +55,7 @@ function validateMoveAt(pos, gs, t){
   //     pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
   //     if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
   //     if (stillChecked){
-  //     // console.log(' your king is checked')
+      // console.log(' your king is checked')
   //       psblPaths.splice(indx, 1);
   //     }
   //   }
@@ -65,7 +65,7 @@ function validateMoveAt(pos, gs, t){
   //   const desPiece = whatIsAt(d);
   //   let bBorgEn;
   //   if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece]; 
-  //   // console.log( piece, desPiece);
+    // console.log( piece, desPiece);
   //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
   //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], d, 1);
   //   if (desPiece != ' ')
@@ -343,7 +343,7 @@ function forPawn(row, col, pos, src){
     }
   }
   
-  console.log(possibleSqs, ' is the possible move fo rpawn and in for Pawn twoSqpawn is ', gameState.twoSqPawn)
+  // console.log(possibleSqs, ' is the possible move fo rpawn and in for Pawn twoSqpawn is ', gameState.twoSqPawn)
   if (rowNew >= 0 && rowNew <= 7){
     const tar = whatIsAt(posNew)[0];
     if (tar == ' ') possibleSqs.push(posNew);
@@ -533,7 +533,7 @@ function checkCastleUtils(turn, src, des = src){
   if (turn == 'white'){
     if (piece[1] == 'R' && !gameState.whiteQRookMoved && src == 0) gameState.whiteQRookMoved = true; 
     if (piece[1] == 'R' && !gameState.whiteKRookMoved && src == 7) gameState.whiteKRookMoved = true; 
-    console.log(piece[1], gameState.whiteKMoved)
+    // console.log(piece[1], gameState.whiteKMoved)
     if (piece[1] == 'K' && !gameState.whiteKMoved) gameState.whiteKMoved = true;
   }
   if (turn == 'black'){

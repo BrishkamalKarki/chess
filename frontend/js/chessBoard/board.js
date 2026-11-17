@@ -24,7 +24,7 @@ let animationOn = false;
 const gameVars = await getGameVars();
 const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, id} = gameVars;
 let turn = 'white';
-console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId)
+// console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId)
 
 let bot, getBestMove;
 if (gameMode != 'multiPlayer'){
@@ -34,15 +34,13 @@ if (gameMode != 'multiPlayer'){
   getBestMove = bot.cwrap('getBestMove', 'number', []);
 }
 
-console.log(getBestMove(), ' is the best move');
-
 let whiteMin;
 let whiteSec;
 let blackMin;
 let blackSec;
 let whiteTimeOut = false, blackTimeOut = false, st = false, sT;
 socket.on('start time', (serverTime)=>{
-  console.log(' the tiemr is started')
+  // console.log(' the tiemr is started')
   whiteMin = serverTime.white.min;
   whiteSec = serverTime.white.sec;
   blackMin = serverTime.black.min;
@@ -259,7 +257,7 @@ class Square{
     ctx.lineTo(this.x, this.y + this.h);
     ctx.lineTo(this.x, this.y);
     ctx.stroke();
-    console.log(clickedSrc, clickedDes, ` are src and destination `);
+    // console.log(clickedSrc, clickedDes, ` are src and destination `);
     if (clearBorder){ // when des is selected
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       board.draw();
@@ -286,6 +284,17 @@ class Square{
   }
 };
 
+if (gameMode != 'multiPlayer' && playedAs == 'black'){
+  makeBotMove();
+}
+
+function makeBotMove(){
+  let depth = 3;
+  console.log(getBestMove(gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS
+     ,gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS, turn == 'white'? 0: 1, depth), ' is the best move');
+  turn = turn == 'white'? 'black': 'white';
+}
+
 // when the user clicks a piece
 let possibleSqs = [];
 canvas.addEventListener('pointerdown', async (event)=>{
@@ -304,7 +313,7 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
 
       if (playedAs == sq.pieceClr){
-        console.log(' i got in here')
+        // console.log(' i got in here')
         if (gameMode == 'multiPlayer'){
           if (turn != playedAs) return;
         }
@@ -325,14 +334,14 @@ canvas.addEventListener('pointerdown', async (event)=>{
     if (gameMode == 'multiPlayer'){ // if online then ask for the server for the valid moves
       const resp = await socket.timeout(2000).emitWithAck('apply move', id, userId, clickedSrc, clickedDes);
       if (!resp.success){
-        console.log('invalid move');
+        // console.log('invalid move');
         clickedDes = null;
         clickedSrc = null;
       }
     }
     else{
-      console.log(gameState.whiteCastled, gameState.whiteKRookMoved, gameState.whiteQRookMoved, ' are white castled k rook and q  rook moved')
-      console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedSrc)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn,gameState.WHITE_KING)
+      // console.log(gameState.whiteCastled, gameState.whiteKRookMoved, gameState.whiteQRookMoved, ' are white castled k rook and q  rook moved')
+      // console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedSrc)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn,gameState.WHITE_KING)
       // checkCastleUtils(turn, clickedSrc);
       const point = getPoint(clickedDes);
       if (point != 0){
@@ -340,6 +349,8 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
       if (possibleSqs.includes(clickedDes)){
         movePiece();
+        if (!promoting)
+          makeBotMove();
       }
       // turn = turn == 'white' ? 'black' : 'white';
     }
@@ -508,11 +519,11 @@ function animate(timestamp){ // animating the piece move
         }
       }
     }
-    console.log('king moved from ', clickedSrc, ' ', clickedDes)
+    // console.log('king moved from ', clickedSrc, ' ', clickedDes)
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
     // reseting the variables
-    console.log(" the tun is the turn of ", turn);
+    // console.log(" the tun is the turn of ", turn);
     disX = disY = mX = mY = srcX = srcY = desX = desY = null;
     frame = 0;
     // redrawing canvas
@@ -525,17 +536,17 @@ function animate(timestamp){ // animating the piece move
     }
     else{
       if (((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) && Math.abs(clickedDes - clickedSrc) == 2 && turn == 'white' && !gameState.whiteCastled && !gameState.whiteKMoved){ 
-        console.log('karna raj akri')
+        // console.log('karna raj akri')
         gameState.justCastled = false;
         gameState.whiteCastled = true;
-        console.log(clickedDes, ' is the clicked des ')
+        // console.log(clickedDes, ' is the clicked des ')
         if (clickedDes == 2 && !gameState.whiteQRookMoved){
-          console.log('white queen side move')
+          // console.log('white queen side move')
           if (isPiece(gameState.WHITE_ROOKS, 0)) updateBitAfterMove(0, 3);
           gameState.whiteQRookMoved = true;
         }
         else if (!gameState.whiteKRookMoved && clickedDes == 6){
-          console.log('white king side move')
+          // console.log('white king side move')
           if (isPiece(gameState.WHITE_ROOKS, 7)) updateBitAfterMove(7, 5);
           gameState.whiteKRookMoved = true;
         }
@@ -548,12 +559,12 @@ function animate(timestamp){ // animating the piece move
         gameState.justCastled = false;
         gameState.blackCastled = true;
         if (clickedDes == 58 && !gameState.blackQRookMoved){
-          console.log('black queen side move')
+          // console.log('black queen side move')
           if (isPiece(gameState.BLACK_ROOKS, 56)) updateBitAfterMove(56, 59);
           gameState.blackQRookMoved = true;
         }
         else if (!gameState.blackKRookMoved && clickedDes == 62){
-          console.log('black king side move')
+          // console.log('black king side move')
           if (isPiece(gameState.BLACK_ROOKS, 63)) updateBitAfterMove(63, 61);
           gameState.blackKRookMoved = true;
         }
@@ -567,11 +578,13 @@ function animate(timestamp){ // animating the piece move
     if (enPassantCapture){
       if (movingWhitePawn){
         gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), enPawn, 0);
-        socket.emit('en passant', 'black', id, enPawn);
+        if (gameMode == 'multiPlayer')
+          socket.emit('en passant', 'black', id, enPawn);
       }
       else{
         gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), enPawn, 0);
-        socket.emit('en passant', 'white', id, enPawn);
+        if (gameMode == 'multiPlayer')
+          socket.emit('en passant', 'white', id, enPawn);
       }
 
       chessPieces.updateSquaresInfo();
@@ -600,10 +613,10 @@ function animate(timestamp){ // animating the piece move
         socket.emit('insuffMats', id);
       }
     }
-    console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
+    // console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
     checkCastleUtils(turn, clickedSrc, clickedDes);
     if (!promoting)
-    turn = turn == 'white' ? 'black' : 'white';
+      turn = turn == 'white' ? 'black' : 'white';
 
     // after making the move fully and flipping hte turn
     if (checkCheckMate(gameState, turn)){
@@ -748,7 +761,7 @@ socket.on('draw', (color)=>{
   drawContainer.appendChild(subContainer);
   drawEl.appendChild(drawContainer);
   document.getElementById('drawAccpt').addEventListener('click', ()=>{
-    console.log('clicked the  draw button')
+    // console.log('clicked the  draw button')
     socket.emit('accept draw', playedAs, id);
   })
   
@@ -855,7 +868,7 @@ socket.on('promote', (t, des)=>{
 
 socket.on('promote for opp', (t, promoDes, piece)=>{
   if (playedAs == t) return;
-  console.log('opp promoted the peice')
+  // console.log('opp promoted the peice')
   if (t == 'white'){
     if (piece == 'B')
       gameState.WHITE_BISHOPS = replaceBit(getCp(gameState.WHITE_BISHOPS), promoDes, 1);
@@ -934,7 +947,7 @@ function promoteFunc(){
     button.addEventListener('click', () => {
       button.style.backgroundColor = 'transparent';
       button.style.transform = 'scale(0.95)';
-      console.log(" the turn is the color of ", turn);
+      // console.log(" the turn is the color of ", turn);
       let clicked = button.textContent;
       if (turn == 'white'){
         if (button.textContent == 'B')
@@ -959,21 +972,25 @@ function promoteFunc(){
         gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), promoDes, 0);
       }
       
-      socket.emit('promote option', id, playedAs, promoDes, clicked);
+      if (gameMode == 'multiPlayer')
+        socket.emit('promote option', id, playedAs, promoDes, clicked);
 
       gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
       gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
       gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
       const c = document.getElementById('c');
       c.remove();
-      console.log((getCp(gameState.WHITE_KNIGHTS) >> BigInt(promoDes)) & 1n , gameState.WHITE_KNIGHTS>>BigInt(55), turn, ' is drawn hahahahahhahahhahahhahahhahahahahahahhaha')
+      // console.log((getCp(gameState.WHITE_KNIGHTS) >> BigInt(promoDes)) & 1n , gameState.WHITE_KNIGHTS>>BigInt(55), turn, ' is drawn hahahahahhahahhahahhahahhahahahahahahhaha')
       
       chessPieces.updatePieceToBB();
       board.draw();
       chessPieces.drawAllPieces();
 
       promoting = false;
-      turn = turn == 'white'? 'black': 'white';
+      if (gameMode != 'multiPlayer')
+        turn = turn == 'white'? 'black': 'white';
+      makeBotMove();
+      
     });
     return button;
   });
