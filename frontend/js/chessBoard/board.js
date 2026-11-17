@@ -26,12 +26,41 @@ const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId,
 let turn = 'white';
 // console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId)
 
-let bot, getBestMove;
+// let bot, getBestMove;
+// if (gameMode != 'multiPlayer'){
+//   bot = await createBot({
+//     locateFile: () => '/bot/bot.wasm'
+//   });
+//   getBestMove = bot.cwrap('getBestMove', 'number', []);
+// }
+let botWorker; // seperate thread for bot
+let requestId = 1;
+const pendingReq = new Map();
 if (gameMode != 'multiPlayer'){
-  bot = await createBot({
-    locateFile: () => '/bot/bot.wasm'
-  });
-  getBestMove = bot.cwrap('getBestMove', 'number', []);
+  botWorker = new Worker(new URL('../../bot/botWorker.js', import.meta.url), {type: 'module'})
+}
+
+if (botWorker){
+  botWorker.onmessage = (event) =>{
+    const {requestId, bestMove, error} = event.data;
+    const resolve = pendingReq.get(requestId);
+    if (!resolve) return;
+    pendingReq.delete(requestId);
+    resolve({ bestMove, error });
+  }
+}
+
+function requestBotSearch(bitBoards, color, depth){
+  return new Promise((resolve)=>{
+    const id = ++requestId;
+    pendingReq.set(id, resolve);
+    botWorker.postMessage({
+      requestId: id,
+      bitBoards,
+      color,
+      depth
+    })
+  })
 }
 
 let whiteMin;
@@ -288,11 +317,21 @@ if (gameMode != 'multiPlayer' && playedAs == 'black'){
   makeBotMove();
 }
 
-function makeBotMove(){
-  let depth = 3;
-  console.log(getBestMove(gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS
-     ,gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS, turn == 'white'? 0: 1, depth), ' is the best move');
-  turn = turn == 'white'? 'black': 'white';
+async function makeBotMove(){
+  let depth = 6;
+  const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
+    gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS];
+  
+  const {bestMove, error} = await requestBotSearch(bitBoards, turn == 'white'? 0: 1, depth);
+  if (bestMove){
+    clickedSrc = Math.floor(bestMove / 100);
+    clickedDes = bestMove % 100;
+    movePiece();
+    return;
+  }
+  if (error){
+    console.error('failed search ', error);
+  }
 }
 
 // when the user clicks a piece
@@ -349,8 +388,6 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
       if (possibleSqs.includes(clickedDes)){
         movePiece();
-        if (!promoting)
-          makeBotMove();
       }
       // turn = turn == 'white' ? 'black' : 'white';
     }
@@ -635,6 +672,9 @@ function animate(timestamp){ // animating the piece move
     clickedSrc = null;
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
+    if (!promoting && turn != playedAs)
+      makeBotMove();
+
     return;
   }
   mX = srcX + disX * frame / 10;

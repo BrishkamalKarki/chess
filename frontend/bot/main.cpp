@@ -4,7 +4,10 @@
 #include <vector>   
 #include <emscripten.h>
 #include <cstdio>
+#include <limits>
 #include <utility>
+#include <bit>
+#include <random>
 
 #define EXTERN extern "C" 
 
@@ -26,6 +29,7 @@ struct Move {
 };
 
 gameState gs;
+int bestMove;
 
 int whatIsAt(int pos){
   if (pos < 0 || pos >= 64) return 0;
@@ -55,11 +59,18 @@ inline vector<int> getPos(uint64_t bB){
   return pos;
 }
 
+inline void forEachBit(uint64_t bB, auto callback){ // faster version of getPos
+  while(bB){
+    int pos = __countr_zero(bB); // gives postion of the first 1 from the rightside
+    callback(pos);
+    bB &= bB - 1; // removing rightmost set bit
+  }
+}
+
 inline void forPawns(int n, vector<Move>& moves){
   // for pawn
-  vector<int> pawnPos = getPos(gs.bitBoards[gs.turn][n]);
   vector<int> pawnShift = {7, 8, 9}; // attack, attack, single step, double step
-  for (int& pos: pawnPos){
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
 
     for (int& pS: pawnShift){
@@ -86,13 +97,12 @@ inline void forPawns(int n, vector<Move>& moves){
         if (!whatIsAt(nextDes) && ((row == 1 && !gs.turn) || (row == 6 && gs.turn))) moves.push_back({pos, nextDes, 0, whatIsAt(pos), tar}); // for 2 step
       }
     }
-  }
+  });
 }
 
 inline void forRooks(int n, vector<Move>& moves){
   // for rook
-  vector<int> rookPos = getPos(gs.bitBoards[gs.turn][n]);
-  for (int& pos: rookPos){
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
     vector<int> loopMax = {7-row, row, 7-col, col};
     vector<int> step = {8, -8, 1, -1};
@@ -105,14 +115,13 @@ inline void forRooks(int n, vector<Move>& moves){
         else break;
       }
     } 
-  }
+  });
 }
 
 inline void forKnights(int n, vector<Move>& moves){
   // for knight
-  vector<int> knightPos = getPos(gs.bitBoards[gs.turn][n]);
   vector<pair<int, int>> knightShift = {{ 2,  1}, { 2, -1}, {-2,  1}, {-2, -1}, { 1,  2}, { 1, -2}, {-1,  2}, {-1, -2}};
-  for (int& pos: knightPos){
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
     
     for (auto& [kRS, kCS]: knightShift){
@@ -125,15 +134,14 @@ inline void forKnights(int n, vector<Move>& moves){
       int tar = whatIsAt(des);
       if (tar == 0 || (gs.turn != (tar / 10))) moves.push_back({pos, des, 0, whatIsAt(pos), tar}); // if enemy or empty square
     }
-  }
+  });
 }
 
 
 inline void forBishops(int n, vector<Move>& moves){
   // for bishop
-  vector<int> bishopPos = getPos(gs.bitBoards[gs.turn][n]);
   vector<pair<int,int>> signs = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
-  for (int& pos: bishopPos){
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
 
     for (int j = 0; j <= 3; j++){
@@ -148,7 +156,7 @@ inline void forBishops(int n, vector<Move>& moves){
         else break;
       }
     } 
-  }
+  });
 }
 
 inline void forQueen(int n, vector<Move>& moves){
@@ -158,9 +166,8 @@ inline void forQueen(int n, vector<Move>& moves){
 
 inline void forKing(int n, vector<Move>& moves){
   // for pawn
-  vector<int> kingPos = getPos(gs.bitBoards[gs.turn][n]);
   vector<int> kingShift = {1, -1, 7, -7, 8, -8, 9, -9}; // attack, attack, single step, double step
-  for (int& pos: kingPos){
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
     
     for (int& pS: kingShift){
@@ -175,75 +182,85 @@ inline void forKing(int n, vector<Move>& moves){
       if (gs.turn == (tar/10) && tar != 0) continue;
       if (gs.turn != (tar/10) || tar == 0) moves.push_back({pos, des, 0, whatIsAt(pos), tar});
     }
-  }
+  });
 }
 
 vector<Move> moveGenerator(){
   vector<Move> moves;
-  // forPawns(5, moves);
-  // forKnights(3, moves);
-  // forRooks(4, moves);
-  // forBishops(2, moves);
-  // forQueen(1, moves);
-  // forKing(0, moves);
   forPawns(5, moves);
-  printf("After pawns: %zu\n", moves.size());
-
   forKnights(3, moves);
-  printf("After knights: %zu\n", moves.size());
-
   forRooks(4, moves);
-  printf("After rooks: %zu\n", moves.size());
-
   forBishops(2, moves);
-  printf("After bishops: %zu\n", moves.size());
-
   forQueen(1, moves);
-  printf("After queen: %zu\n", moves.size());
-
   forKing(0, moves);
-  printf("After king: %zu\n", moves.size());
+  // forPawns(5, moves);
+  // printf("After pawns: %zu\n", moves.size());
+
+  // forKnights(3, moves);
+  // printf("After knights: %zu\n", moves.size());
+
+  // forRooks(4, moves);
+  // printf("After rooks: %zu\n", moves.size());
+
+  // forBishops(2, moves);
+  // printf("After bishops: %zu\n", moves.size());
+
+  // forQueen(1, moves);
+  // printf("After queen: %zu\n", moves.size());
+
+  // forKing(0, moves);
+  // printf("After king: %zu\n", moves.size());
   return moves;
 }
 
 inline void makeMove(Move& move){
   int sClr = move.srcPiece/10;
-  int sPis = move.srcPiece%10;
+  int sPis = move.srcPiece%10 - 1;
   int tClr = move.targetPiece/10;
-  int tPis = move.targetPiece%10;
+  int tPis = move.targetPiece%10 - 1;
   gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.from);
   gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] | (1ULL << move.to);
   if (move.targetPiece != 0){
     gs.bitBoards[tClr][tPis] = gs.bitBoards[tClr][tPis] & ~(1ULL << move.to);
   }
+  gs.turn = gs.turn == 0? 1: 0;
 }
 
 inline void unMakeMove(Move& move){
   int sClr = move.srcPiece/10;
-  int sPis = move.srcPiece%10;
+  int sPis = move.srcPiece%10 - 1;
   int tClr = move.targetPiece/10;
-  int tPis = move.targetPiece%10;
+  int tPis = move.targetPiece%10 - 1;
   gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] | (1ULL << move.from);
   gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.to);
   if (move.targetPiece != 0){
     gs.bitBoards[tClr][tPis] = gs.bitBoards[tClr][tPis] | (1ULL << move.to);
   }
+  gs.turn = gs.turn == 0? 1: 0;
 }
 
 int evaluate(){
-  
+  // random_device rD;
+  // mt19937 gen(rD());
+  // std::uniform_int_distribution<> dist(-100, 100);
+  // return dist(gen);
+  return 0;
 }
 
 int negaMax(int depth){
   if (depth == 0) return evaluate();
   vector<Move> moves = moveGenerator();
+  int maxScore = -numeric_limits<int>::max();
   for (auto& move: moves){
     makeMove(move);
-    int score = negaMax(gs.depth--);
-    if (score)
+    int score = -negaMax(depth - 1);
     unMakeMove(move);
+    if (score > maxScore){
+      maxScore = score;
+      bestMove = move.from * 100 + move.to;
+    }
   }
-  return 0;
+  return maxScore;
 }
 
 
@@ -258,10 +275,8 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     gs.turn = color;
     gs.depth = depth;
 
-    printf("White King: %llu\n", (unsigned long long)wK);
-    printf("Black King: %llu\n", (unsigned long long)bK);
-    fflush(stdout);
+    int score = negaMax(gs.depth);
 
-    int score = negaMax();
-  return 234;
+    printf("The best move is: %d %d\n", bestMove/100, bestMove%100);
+  return bestMove;
 }

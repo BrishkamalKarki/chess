@@ -6,6 +6,7 @@ em++ ./frontend/bot/main.cpp \
   -s WASM=1 \
   -s EXPORTED_FUNCTIONS='["_getBestMove"]' \
   -s ENVIRONMENT='web' \
+  -std=c++20 \
   -s MODULARIZE=1 \
   -s EXPORT_ES6=1 \
   -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
