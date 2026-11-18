@@ -310,7 +310,7 @@ if (gameMode != 'multiPlayer' && playedAs == 'black'){
 }
 
 async function makeBotMove(){
-  let depth = 3;
+  let depth = 4;
   const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
     gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS];
   
@@ -848,10 +848,10 @@ document.getElementById('backToMenu').addEventListener('click', ()=>{
   }
 })
 
-window.addEventListener('beforeunload', (event)=>{
-  event.preventDefault();
-  event.returnValue = '...';
-})
+// window.addEventListener('beforeunload', (event)=>{
+//   event.preventDefault();
+//   event.returnValue = '...';
+// })
 
 socket.on('draw rjct from server', ()=>{
   drawShown = false;

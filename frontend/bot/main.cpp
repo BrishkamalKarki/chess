@@ -380,34 +380,32 @@ inline int materialAdv(){
 }
 
 int evaluate(){
-  // random_device rD;
-  // mt19937 gen(rD());
-  // std::uniform_int_distribution<> dist(-100, 100);
-  // return dist(gen);
   int ttlScore = 0;
   ttlScore += materialAdv();
   return ttlScore;
 }
 
-int negaMax(int depth){
+int negaMax(int alpha, int beta, int depth){
   vector<Move> moves = moveGenerator();
-  int maxScore = -numeric_limits<int>::max();
+  int bestScore = -numeric_limits<int>::max();
   if (moves.empty()) {
-    if (kingChecked())
-      return gs.depth - depth;
+    // if (kingChecked())
+    //   return gs.depth - depth;
     return 0;
   }
   if (depth == 0) return evaluate();
   for (auto& move: moves){
     makeMove(move);
-    int score = -negaMax(depth - 1);
+    int score = -negaMax(-beta, -alpha, depth - 1);
     unMakeMove(move);
-    if (score > maxScore){
-      maxScore = score;
+    if (score > bestScore){
+      bestScore = score;
       if (depth == gs.depth) bestMove = move.from * 100 + move.to;
     }
+    alpha = max(alpha, score);
+    if (alpha > beta) break; // pruned
   }
-  return maxScore;
+  return bestScore;
 }
 
 
@@ -422,7 +420,8 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     gs.turn = color;
     gs.depth = depth;
 
-    int score = negaMax(gs.depth);
+    int alpaBeta = numeric_limits<int>::max();
+    int score = negaMax(-alpaBeta, alpaBeta ,gs.depth); // alpha(my best) beta(opp best) depth
 
     printf("The best move is: %d %d\n", bestMove/100, bestMove%100);
   return bestMove;
