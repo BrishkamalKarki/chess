@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ~/emsdk/emsdk_env.sh
+
 em++ ./frontend/bot/main.cpp \
   -O3 \
   -o ./frontend/bot/bot.js \
