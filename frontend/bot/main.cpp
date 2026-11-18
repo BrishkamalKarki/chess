@@ -463,8 +463,8 @@ vector<Move> moveGenerator(){
   return moves;
 }
 
+constexpr int PIECE_VALUES[6] = {0, 900, 330, 325, 500, 100}; // K Q B N R P
 inline int materialAdv(){
-  constexpr int PIECE_VALUES[6] = {0, 900, 330, 320, 500, 100}; // K Q B N R P
   int score = 0;
   for (int piece = 0; piece < 6; piece++){
     int whiteCount = std::popcount(gs.bitBoards[0][piece]); // counts no of bit 1 
@@ -481,8 +481,30 @@ int evaluate(){
 }
 
 int nodes = 0;
+
+int moveOrderEvaluator(const Move& move){
+  int score = 0;
+  if (move.targetPiece != 0){
+    int targetPiece = move.targetPiece%10 - 1;
+    int srcPiece = move.srcPiece%10 - 1;
+    score += 10000 + PIECE_VALUES[targetPiece] * 10 - PIECE_VALUES[srcPiece]; // lower the piece eats higher the piece it is good
+  }
+
+  if (move.promotion != 0){
+    score += 20000 + PIECE_VALUES[move.promotion] * 10; // promotion > normal attacks
+  }
+
+  return score;
+}
+
 int negaMax(int alpha, int beta, int depth){
   vector<Move> moves = moveGenerator();
+
+  // sorting the moves based on the good moves giving first priority
+  sort(moves.begin(), moves.end(), [](Move& M1, Move& M2){
+    return moveOrderEvaluator(M1) > moveOrderEvaluator(M2);
+  });
+
   int bestScore = -numeric_limits<int>::max();
   if (moves.empty()){
     // if (kingChecked())
