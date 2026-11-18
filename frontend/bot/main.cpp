@@ -68,119 +68,78 @@ inline void forEachBit(uint64_t bB, auto callback){ // faster version of getPos
   }
 }
 
-inline void forPawnAttacks(int n, vector<int>& attackSq){
-  vector<int> pawnShift = {7, 9}; // attack, attack, single step, double step
-  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
-    int row = pos/8; int col = pos%8;
+bool isSquareAttacked(int square, int attackerColor){ // reverse checking from the destination to the src if src has enemy piece or not 
+  int row = square / 8;
+  int col = square % 8;
 
-    for (int& pS: pawnShift){
-      int des = pos+(gs.turn == 0? 1:-1)*pS;
-      if (des < 0 || des > 63) continue;
-      if (pS == 7 || pS  == 9){ // for diagonal check
-        if (gs.turn == 0){
-          if (pS == 7 && col == 0) continue;
-          if (pS == 9 && col == 7) continue;
-        } 
-        else{
-          if (pS == 7 && col == 7) continue;
-          if (pS == 9 && col == 0) continue;
-        }
-        attackSq.push_back(des);
-      }
-    }
-  });
-}
+  // pawn attacks
+  uint64_t pawns = gs.bitBoards[attackerColor][5];
+  int direction = (attackerColor == 0)? 1: -1;
+  for (int dc: {-1, 1}){
+    int newRow = row - direction;
+    int newCol = col - dc;
+    if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 8) continue;
+    int pos = newRow * 8 + newCol;
+    if (pawns & (1ULL << pos)) return true;
+  }
 
-inline void forKnightAttack(int n, vector<int>& attackSq){
-  vector<pair<int, int>> knightShift = {{ 2,  1}, { 2, -1}, {-2,  1}, {-2, -1}, { 1,  2}, { 1, -2}, {-1,  2}, {-1, -2}};
-  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
-    int row = pos/8; int col = pos%8;
-    
-    for (auto& [kRS, kCS]: knightShift){
-      int newRow = row + kRS;
-      int newCol = col + kCS;
+  // knight attacks
+  int knightOffsets[8][2] = {{-2,-1}, {-2,1}, {-1,-2}, {-1,2}, {1,-2}, {1,2}, {2,-1}, {2,1}};
+  uint64_t knights = gs.bitBoards[attackerColor][3];
+  for (auto& offset: knightOffsets){
+      int newRow = row + offset[0];
+      int newCol = col + offset[1];
       if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 8) continue;
-      
-      int des = newRow * 8 + newCol;
-      if (des < 0 || des > 63) continue;
-      attackSq.push_back(des);
+      int pos = newRow * 8 + newCol;
+      if (knights & (1ULL << pos)) return true;
+  }
+
+  // rook and queen attacks
+  int straight[4][2] = {{-1,0}, {1,0}, {0,-1}, {0,1}};
+  uint64_t rooksQueens = gs.bitBoards[attackerColor][4] | gs.bitBoards[attackerColor][1]; // making newbitboard for combined rook and queen
+  for (auto& dir: straight){ // looping over all east west north south
+    int newRow = row + dir[0];
+    int newCol = col + dir[1];
+    while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8){ // for eaach step
+      int pos = newRow * 8 + newCol;
+      uint64_t posBb = 1ULL << pos; // bitboard with src pos as 1 bit
+      if (rooksQueens & posBb) return true; // if src has queen or rooks
+      if (whatIsAt(pos) != 0) break; // if enemy or own piece then stop , empty if continue
+      newRow += dir[0];
+      newCol += dir[1];
     }
-  });
-}
+  }
 
-inline void forRookAttack(int n, vector<int>& attackSq){
-  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
-    int row = pos/8; int col = pos%8;
-    vector<int> loopMax = {7-row, row, 7-col, col};
-    vector<int> step = {8, -8, 1, -1};
-    for (int j = 0; j <= 3; j++){
-      for (int i = 1; i <= loopMax[j]; i++){
-        int des = pos + step[j] * i;
-        int tar = whatIsAt(des);
-        attackSq.push_back(des);
-        if (tar != 0) break;
+  // bishops and queen attacks
+  int diagonal[4][2] = {{-1,-1}, {-1,1}, {1,-1}, {1,1}};
+  uint64_t bishopsQueens = gs.bitBoards[attackerColor][2] | gs.bitBoards[attackerColor][1];
+  for (auto& dir: diagonal){
+      int newRow = row + dir[0];
+      int newCol = col + dir[1];
+      while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8){
+        int pos = newRow * 8 + newCol;
+        uint64_t mask = 1ULL << pos;
+        if (bishopsQueens & mask) return true;
+        if (whatIsAt(pos) != 0) break;
+        newRow += dir[0];
+        newCol += dir[1];
       }
-    } 
-  });
-}
+  }
 
-inline void forBishopAttack(int n, vector<int>& attackSq){
-  vector<pair<int,int>> signs = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
-  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
-    int row = pos/8; int col = pos%8;
-
-    for (int j = 0; j <= 3; j++){
-      for (int i = 1; i <= 7; i++){
-        int newRow = row + signs[j].first * i;
-        int newCol = col + signs[j].second * i;
-        if (newRow > 7 || newRow < 0 || newCol > 7 || newCol < 0) break;
-        int des = newRow * 8 + newCol;
-        int tar = whatIsAt(des);
-        attackSq.push_back(des);
-        if (tar != 0) break;
-      }
-    } 
-  });
-}
-
-inline void forQueenAttacks(int n, vector<int>& attackSq){
-  forRookAttack(n, attackSq);
-  forBishopAttack(n, attackSq);
-}
-
-inline void forKingAttacks(int n, vector<int>& attackSq){
-  vector<int> kingShift = {1, -1, 7, -7, 8, -8, 9, -9}; // attack, attack, single step, double step
-  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
-    int row = pos/8; int col = pos%8;
-    
-    for (int& pS: kingShift){
-      int des = pos+pS;
-      if (des < 0 || des > 63) continue;
-      int newRow = des/8;
-      int newCol = des%8;
-      if (newRow != row && abs(row-newRow) != 1) continue;
-      if (newCol != col && abs(col-newCol) != 1) continue;
-
-      attackSq.push_back(des);
+  // king attacks
+  uint64_t enemyKing = gs.bitBoards[attackerColor][0];
+  for (int dr = -1; dr <= 1; dr++){
+    for (int dc = -1; dc <= 1; dc++){
+      if (dr == 0 && dc == 0) continue;
+      int newRow = row + dr;
+      int newCol = col + dc;
+      if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 8) continue;
+      int pos = newRow * 8 + newCol;
+      if (enemyKing & (1ULL << pos)) return true;
     }
-  });
-}
+  }
 
-inline bool kingChecked(){
-  int kingColor = 1 - gs.turn;
-  vector<int> enemyAttackSq;
-  int kingSq = -1;
-  forEachBit(gs.bitBoards[kingColor][0], [&](int pos){
-    kingSq = pos;
-  });
-  if (kingSq == -1) return 1;
-  forPawnAttacks(5, enemyAttackSq);
-  forKnightAttack(3, enemyAttackSq);
-  forRookAttack(4, enemyAttackSq);
-  forBishopAttack(2, enemyAttackSq);
-  forQueenAttacks(1, enemyAttackSq);
-  forKingAttacks(0, enemyAttackSq);
-  return find(enemyAttackSq.begin(), enemyAttackSq.end(), kingSq) != enemyAttackSq.end();
+  return false;
 }
 
 inline void makeMove(Move& move){
@@ -209,15 +168,24 @@ inline void unMakeMove(Move& move){
   gs.turn = gs.turn == 0? 1: 0;
 }
 
-inline void simulateMoves(vector<Move>& moves) {
+bool isKingInCheck(int kingColor){
+  int kingSq = -1;
+  forEachBit(gs.bitBoards[kingColor][0], [&](int pos){
+    kingSq = pos;
+  });
+  if (kingSq == -1) return true;
+  return isSquareAttacked(kingSq, 1 - kingColor);
+}
+
+inline void simulateMoves(vector<Move>& moves){
   vector<Move> legalMoves;
-  for (auto& mv : moves) {
-      makeMove(mv);
-      bool illegal = kingChecked();
-      unMakeMove(mv);
-      if (!illegal) legalMoves.push_back(mv);
+  for (auto& mv: moves){
+    makeMove(mv);
+    bool illegal = isKingInCheck(1 - gs.turn);
+    unMakeMove(mv);
+    if (!illegal) legalMoves.push_back(mv);
   }
-  moves = std::move(legalMoves);
+  moves = move(legalMoves);
 }
 
 inline void forPawns(int n, vector<Move>& moves){
@@ -376,7 +344,7 @@ inline int materialAdv(){
     int blackCount = std::popcount(gs.bitBoards[1][piece]);
     score += (whiteCount - blackCount) * PIECE_VALUES[piece]; // from white's perspective
   }
-  return gs.turn == 0 ? score : -score; // if white's turn then sending from white's perspective
+  return gs.turn == 0 ? score: -score; // if white's turn then sending from white's perspective
 }
 
 int evaluate(){
@@ -385,10 +353,11 @@ int evaluate(){
   return ttlScore;
 }
 
+int nodes = 0;
 int negaMax(int alpha, int beta, int depth){
   vector<Move> moves = moveGenerator();
   int bestScore = -numeric_limits<int>::max();
-  if (moves.empty()) {
+  if (moves.empty()){
     // if (kingChecked())
     //   return gs.depth - depth;
     return 0;
@@ -397,13 +366,14 @@ int negaMax(int alpha, int beta, int depth){
   for (auto& move: moves){
     makeMove(move);
     int score = -negaMax(-beta, -alpha, depth - 1);
+    nodes++;
     unMakeMove(move);
     if (score > bestScore){
       bestScore = score;
       if (depth == gs.depth) bestMove = move.from * 100 + move.to;
     }
     alpha = max(alpha, score);
-    if (alpha > beta) break; // pruned
+    if (alpha >= beta) break; // pruned
   }
   return bestScore;
 }
@@ -423,6 +393,6 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     int alpaBeta = numeric_limits<int>::max();
     int score = negaMax(-alpaBeta, alpaBeta ,gs.depth); // alpha(my best) beta(opp best) depth
 
-    printf("The best move is: %d %d\n", bestMove/100, bestMove%100);
+    printf("The best move is and node is: %d %d %d\n", bestMove/100, bestMove%100, nodes);
   return bestMove;
 }
