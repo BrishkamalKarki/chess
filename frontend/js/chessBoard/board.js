@@ -55,6 +55,7 @@ function requestBotSearch(bitBoards, color, depth){
   })
 }
 
+let gameOver = false;
 let whiteMin;
 let whiteSec;
 let blackMin;
@@ -309,6 +310,7 @@ if (gameMode != 'multiPlayer' && playedAs == 'black'){
   makeBotMove();
 }
 
+let botPromote = 0;
 async function makeBotMove(){
   let depth = 4;
   const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
@@ -316,8 +318,10 @@ async function makeBotMove(){
   
   const {bestMove, error} = await requestBotSearch(bitBoards, turn == 'white'? 0: 1, depth);
   if (bestMove){
-    clickedSrc = Math.floor(bestMove / 100);
-    clickedDes = bestMove % 100;
+    botPromote = bestMove % 10;
+    let bM = Math.floor(bestMove / 10);
+    clickedSrc = Math.floor(bM / 100);
+    clickedDes = bM % 100;
     movePiece();
     return;
   }
@@ -530,7 +534,7 @@ function animate(timestamp){ // animating the piece move
     const enRow = enPawn != -1 ? Math.floor(enPawn / 8) : -1;
     const enemyPawnBoard = movingWhitePawn? gameState.BLACK_PAWNS : gameState.WHITE_PAWNS;
     const enPassantCapture = enPawn != -1 && movedPawn && !isPiece(gameState.BLACK_WHITE, clickedDes) && clickedDes == (movingWhitePawn ? enPawn + 8 : enPawn - 8) &&
-     Math.floor(clickedSrc / 8) == enRow && Math.abs((clickedSrc % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn);
+    Math.floor(clickedSrc / 8) == enRow && Math.abs((clickedSrc % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn);
 
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
@@ -544,6 +548,7 @@ function animate(timestamp){ // animating the piece move
             sessionStorage.setItem('turn', 'Nobody');
             sessionStorage.setItem('by', 'ThreeFold Repetetion');
             navigateTo(pagesRoutes.winner);   
+            gameOver = true;
           }
         }
       }
@@ -559,8 +564,8 @@ function animate(timestamp){ // animating the piece move
     board.draw();
     chessPieces.drawAllPieces();
     animationOn = false;
-    const promoted = isPromoted(clickedSrc, clickedDes, gameState);
-    if (promoted && gameMode != 'multiPlayer'){
+    const promoted = gameMode != 'multiPlayer' && turn == playedAs && isPromoted(clickedSrc, clickedDes, gameState);
+    if (promoted && gameMode != 'multiPlayer' && playedAs == turn){
       promoteFunc();
     }
     else{
@@ -632,18 +637,57 @@ function animate(timestamp){ // animating the piece move
     gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
     gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
 
+    
+    // console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
+    checkCastleUtils(turn, clickedSrc, clickedDes);
+    if (botPromote != 0){
+      if (turn == 'white'){
+        if (botPromote == 1)
+          gameState.WHITE_QUEEN = replaceBit(getCp(gameState.WHITE_QUEEN), clickedDes, 1);
+        else if (botPromote == 2)
+          gameState.WHITE_BISHOPS = replaceBit(getCp(gameState.WHITE_BISHOPS), clickedDes, 1);
+        else if (botPromote == 3)
+          gameState.WHITE_KNIGHTS = replaceBit(getCp(gameState.WHITE_KNIGHTS), clickedDes, 1);
+        else if (botPromote == 4)
+          gameState.WHITE_ROOKS = replaceBit(getCp(gameState.WHITE_ROOKS), clickedDes, 1);
+        gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), clickedDes, 0);
+      }
+      else if (turn == 'black'){
+        if (botPromote == 1)
+          gameState.BLACK_QUEEN = replaceBit(getCp(gameState.BLACK_QUEEN), clickedDes, 1);
+        else if (botPromote == 2)
+          gameState.BLACK_BISHOPS = replaceBit(getCp(gameState.BLACK_BISHOPS), clickedDes, 1);
+        else if (botPromote == 3)
+          gameState.BLACK_KNIGHTS = replaceBit(getCp(gameState.BLACK_KNIGHTS), clickedDes, 1);
+        else if (botPromote == 4)
+          gameState.BLACK_ROOKS = replaceBit(getCp(gameState.BLACK_ROOKS), clickedDes, 1);
+        gameState.BLACK_PAWNS = replaceBit(getCp(gameState.BLACK_PAWNS), clickedDes, 0);
+      }
+      
+      gameState.BLACK_PLACEMENTS = gameState.BLACK_BISHOPS | gameState.BLACK_KING | gameState.BLACK_KNIGHTS | gameState.BLACK_PAWNS | gameState.BLACK_QUEEN | gameState.BLACK_ROOKS;
+      gameState.WHITE_PLACEMENTS = gameState.WHITE_BISHOPS | gameState.WHITE_KING | gameState.WHITE_KNIGHTS | gameState.WHITE_PAWNS | gameState.WHITE_QUEEN | gameState.WHITE_ROOKS;
+      gameState.BLACK_WHITE = gameState.WHITE_PLACEMENTS | gameState.BLACK_PLACEMENTS;
+      
+      chessPieces.updatePieceToBB();
+      board.draw();
+      chessPieces.drawAllPieces();
+      
+    }
+    botPromote = 0;
+    
     if (isInsuffMats(gameState)){
       if (gameMode != 'multiPlayer'){
         sessionStorage.setItem('turn', 'Nobody');
         sessionStorage.setItem('by', 'Insufficient Materials');
+        gameOver = false;
         navigateTo(pagesRoutes.winner);   
+        gameOver = true;
       }
       else{
         socket.emit('insuffMats', id);
       }
     }
-    // console.log('in board.js twoSqpawn is ', gameState.twoSqPawn);
-    checkCastleUtils(turn, clickedSrc, clickedDes);
+
     if (!promoting)
       turn = turn == 'white' ? 'black' : 'white';
 
@@ -652,20 +696,23 @@ function animate(timestamp){ // animating the piece move
       sessionStorage.setItem('turn', turn == 'white'? 'black': 'white');
       sessionStorage.setItem('by', 'CheckMate');
       navigateTo(pagesRoutes.winner);
+      gameOver = false;
     }
     
     if (checkStaleMate(gameState, turn)){
       sessionStorage.setItem('turn', 'nobody');
       sessionStorage.setItem('by', 'StaleMate');
       navigateTo(pagesRoutes.winner);
+      gameOver = false;
     }
 
     clickedDes = null;
     clickedSrc = null;
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
-    if (!promoting && turn != playedAs)
+    if (turn != playedAs && gameMode != 'multiPlayer'){
       makeBotMove();
+    }
 
     return;
   }
@@ -680,6 +727,7 @@ function animate(timestamp){ // animating the piece move
 let disX, disY, mX, mY;
 let srcX = null, srcY = null, desX, desY, frame;
 function movePiece(){ // calculating things for the animation
+  if (gameOver) return;
   animationOn = true;
   for (const sq of chessPieces.squares){
     if (clickedSrc == sq.sqNo){
@@ -709,12 +757,14 @@ socket.on('checkmate', (looser)=>{
   sessionStorage.setItem('turn', looser == 'white'? 'black': 'white');
   sessionStorage.setItem('by', 'CheckMate');
   navigateTo(pagesRoutes.winner);
+  gameOver = true;
 })
 
 socket.on('stalemate', (looser)=>{
   sessionStorage.setItem('turn', 'nobody');
   sessionStorage.setItem('by', 'StaleMate');
   navigateTo(pagesRoutes.winner);
+  gameOver = true;
 })
 
 document.getElementById('resign')?.addEventListener('click', ()=>{
@@ -828,6 +878,7 @@ socket.on('draw accpt from server', ()=>{
   sessionStorage.setItem('turn', 'NOBODY');
   sessionStorage.setItem('by', 'Draw');
   navigateTo(pagesRoutes.winner);
+  gameOver = true;
 })
 
 if (gameMode != 'multiPlayer'){
@@ -837,6 +888,7 @@ if (gameMode != 'multiPlayer'){
     sessionStorage.setItem('turn', 'BOT');
     sessionStorage.setItem('by', 'resignation');
     navigateTo(pagesRoutes.winner);
+    gameOver = true;
   })
 }
 
@@ -863,6 +915,7 @@ socket.on('threefold repetition', ()=>{
   sessionStorage.setItem('turn', 'Nobody');
   sessionStorage.setItem('by', 'ThreeFold Repetetion');
   navigateTo(pagesRoutes.winner);   
+  gameOver = true;
 })
 
 socket.on('player left', (color)=>{
@@ -870,6 +923,7 @@ socket.on('player left', (color)=>{
   sessionStorage.setItem('turn', color);
   sessionStorage.setItem('by', 'opponent left');
   navigateTo(pagesRoutes.winner);   
+  gameOver = true;
 })
 
 socket.on('resign from server', (color, success)=>{
@@ -877,6 +931,7 @@ socket.on('resign from server', (color, success)=>{
     sessionStorage.setItem('turn', color);
     sessionStorage.setItem('by', 'resignation');
     navigateTo(pagesRoutes.winner);
+    gameOver = true;
   }
 });
 
@@ -884,12 +939,14 @@ socket.on('timeOut', (winner)=>{
   sessionStorage.setItem('turn', winner);
   sessionStorage.setItem('by', 'TimeOut');
   navigateTo(pagesRoutes.winner); 
+  gameOver = true;
 })
 
 socket.on('insuffMats', (t, des)=>{
   sessionStorage.setItem('turn', 'Nobody');
   sessionStorage.setItem('by', 'Insufficient Materials');
   navigateTo(pagesRoutes.winner); 
+  gameOver = true;
 });
 
 socket.on('promote', (t, des)=>{
@@ -952,7 +1009,6 @@ function promoteFunc(){
   const buttons = ['Q', 'R', 'B', 'N'].map(piece => {
     const button = document.createElement('button');
     button.textContent = piece;
-    
     Object.assign(button.style, {
       width: '40px',
       height: '40px',
@@ -976,12 +1032,13 @@ function promoteFunc(){
     });
     
     const promoDes = clickedDes;
+    const promotionColor = turn;
     button.addEventListener('click', () => {
       button.style.backgroundColor = 'transparent';
       button.style.transform = 'scale(0.95)';
       // console.log(" the turn is the color of ", turn);
       let clicked = button.textContent;
-      if (turn == 'white'){
+      if (promotionColor == 'white'){
         if (button.textContent == 'B')
           gameState.WHITE_BISHOPS = replaceBit(getCp(gameState.WHITE_BISHOPS), promoDes, 1);
         else if (button.textContent == 'R')
@@ -992,7 +1049,7 @@ function promoteFunc(){
           gameState.WHITE_KNIGHTS = replaceBit(getCp(gameState.WHITE_KNIGHTS), promoDes, 1);
         gameState.WHITE_PAWNS = replaceBit(getCp(gameState.WHITE_PAWNS), promoDes, 0);
       }
-      else if (turn == 'black'){
+      else if (promotionColor == 'black'){
         if (button.textContent == 'B')
           gameState.BLACK_BISHOPS = replaceBit(getCp(gameState.BLACK_BISHOPS), promoDes, 1);
         else if (button.textContent == 'R')
@@ -1019,11 +1076,42 @@ function promoteFunc(){
       chessPieces.drawAllPieces();
 
       promoting = false;
-      if (gameMode != 'multiPlayer')
+      if (gameMode != 'multiPlayer'){
         turn = turn == 'white'? 'black': 'white';
-      makeBotMove();
+      }
+      if (isInsuffMats(gameState)){
+        if (gameMode != 'multiPlayer'){
+          sessionStorage.setItem('turn', 'Nobody');
+          sessionStorage.setItem('by', 'Insufficient Materials');
+          navigateTo(pagesRoutes.winner);   
+          gameOver = false;
+        }
+        else{
+          socket.emit('insuffMats', id);
+        }
+      }
+
+        // after making the move fully and flipping hte turn
+      if (checkCheckMate(gameState, turn)){
+        sessionStorage.setItem('turn', turn == 'white'? 'black': 'white');
+        sessionStorage.setItem('by', 'CheckMate');
+        navigateTo(pagesRoutes.winner);
+        gameOver = false;
+      }
       
-    });
+      if (checkStaleMate(gameState, turn)){
+        sessionStorage.setItem('turn', 'nobody');
+        sessionStorage.setItem('by', 'StaleMate');
+        navigateTo(pagesRoutes.winner);
+        gameOver = false;
+      }
+
+      if (!gameOver && gameMode !== 'multiPlayer' && turn !== playedAs) {
+        makeBotMove();
+      }
+    }
+      
+    );
     return button;
   });
   const [Q, R, B, N] = buttons;
