@@ -36,49 +36,7 @@ function validateMoveAt(pos, gs, t){
   // console.log(willGetChecked(pos, piece, pieceToBitBoard, turn, des))
   // if (willGetChecked(pos, piece, pieceToBitBoard, turn, des)) return [];
   const psblPaths = pieceToFunc[piece](row, col, pos, piece[0]);
-  // console.log(psblPaths, ' are possible Paths');
 
-  // let indx = -1;
-  // for (const d of psblPaths){
-  //   indx++;
-  //   const ifChecked = kingChecked(turn); // in each's turn before each move check if king is checked
-  //   if (ifChecked){
-  //     const bBorg = pieceToBitBoard[piece]; // saving org board state
-  //     const desPiece = whatIsAt(d);
-  //     let bBorgEn;
-  //     if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece];
-  //     pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
-  //     pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], d, 1);
-  //     if (desPiece != ' ')
-  //       pieceToBitBoard[desPiece] = replaceBit(pieceToBitBoard[desPiece], d, 0);
-  //     const stillChecked = kingChecked(turn)
-  //     pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
-  //     if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
-  //     if (stillChecked){
-      // console.log(' your king is checked')
-  //       psblPaths.splice(indx, 1);
-  //     }
-  //   }
-
-  //   // check if after that move is the check
-  //   const bBorg = pieceToBitBoard[piece]; // saving org board state
-  //   const desPiece = whatIsAt(d);
-  //   let bBorgEn;
-  //   if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece]; 
-    // console.log( piece, desPiece);
-  //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
-  //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], d, 1);
-  //   if (desPiece != ' ')
-  //     pieceToBitBoard[desPiece] = replaceBit(pieceToBitBoard[desPiece], d, 0);
-  //   const checked = kingChecked(turn);
-  //   pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
-  //     if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
-  //   if (checked){
-  //     psblPaths.splice(indx, 1);
-  //   }
-  // }
-
-  // return psblPaths;
   const legalMoves = [];
   for (const d of psblPaths){
     const desPiece = whatIsAt(d);

@@ -20,7 +20,7 @@ struct gameState{
   int turn;
 };
 
-struct Move {
+struct Move{
   int from;
   int to;
   int promotion;
@@ -62,9 +62,134 @@ inline vector<int> getPos(uint64_t bB){
 inline void forEachBit(uint64_t bB, auto callback){ // faster version of getPos
   while(bB){
     int pos = __countr_zero(bB); // gives postion of the first 1 from the rightside
-    callback(pos);
+    callback(pos); // for each 1's position calls the passed lambda
     bB &= bB - 1; // removing rightmost set bit
   }
+}
+
+inline void forPawnAttacks(int n, vector<Move>& attackSq){
+  vector<int> pawnShift = {7, 9}; // attack, attack, single step, double step
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
+    int row = pos/8; int col = pos%8;
+
+    for (int& pS: pawnShift){
+      int des = pos+(gs.turn == 0? 1:-1)*pS;
+      if (des < 0 || des > 63) continue;
+      if (pS == 7 || pS  == 9){ // for diagonal check
+        if (gs.turn == 0){
+          if (pS == 7 && col == 0) continue;
+          if (pS == 9 && col == 7) continue;
+        } 
+        else{
+          if (pS == 7 && col == 7) continue;
+          if (pS == 9 && col == 0) continue;
+        }
+        int tar = whatIsAt(des);
+        if (!tar) continue;
+        if (gs.turn != (tar/10) && tar != 0) attackSq.push_back(des);
+      }
+    }
+  });
+}
+
+inline void forKnightAttack(int n, vector<Move>& attackSq){
+  vector<pair<int, int>> knightShift = {{ 2,  1}, { 2, -1}, {-2,  1}, {-2, -1}, { 1,  2}, { 1, -2}, {-1,  2}, {-1, -2}};
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
+    int row = pos/8; int col = pos%8;
+    
+    for (auto& [kRS, kCS]: knightShift){
+      int newRow = row + kRS;
+      int newCol = col + kCS;
+      if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 8) continue;
+      
+      int des = newRow * 8 + newCol;
+      if (des < 0 || des > 63) continue;
+      int tar = whatIsAt(des);
+      if (tar != 0 & (gs.turn != (tar / 10))) attackSq.push_back(des); // if enemy 
+    }
+  });
+}
+
+inline void forRookAttack(int n, vector<Move>& attackSq){
+  vector<int> loopMax = {7-row, row, 7-col, col};
+  vector<int> step = {8, -8, 1, -1};
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
+    int row = pos/8; int col = pos%8;
+    for (int j = 0; j <= 3; j++){
+      for (int i = 1; i <= loopMax[j]; i++){
+        int des = pos + step[j] * i;
+        int tar = whatIsAt(des);
+        if (tar == 0) continue;
+        if (gs.turn != (tar/10)){attackSq.push_back(des); break;}
+        else break;
+      }
+    } 
+  });
+}
+
+inline void forBishopAttack(int n, vector<Move>& attackSq){
+  vector<pair<int,int>> signs = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
+    int row = pos/8; int col = pos%8;
+
+    for (int j = 0; j <= 3; j++){
+      for (int i = 1; i <= 7; i++){
+        int newRow = row + signs[j].first * i;
+        int newCol = col + signs[j].second * i;
+        if (newRow > 7 || newRow < 0 || newCol > 7 || newCol < 0) break;
+        int des = newRow * 8 + newCol;
+        int tar = whatIsAt(des);
+        if (tar == 0){continue;} 
+        if (gs.turn != (tar/10)){attackSq.push_back(des); break;} // enemy
+        else break;
+      }
+    } 
+  });
+}
+
+inline void forQueenAttacks(int n, vector<Move>& attackSq){
+  forRookAttack(n, attackSq);
+  forBishopAttack(n, attackSq);
+}
+
+inline void forKingAttacks(int n, vector<Move>& attackSq){
+  vector<int> kingShift = {1, -1, 7, -7, 8, -8, 9, -9}; // attack, attack, single step, double step
+  forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
+    int row = pos/8; int col = pos%8;
+    
+    for (int& pS: kingShift){
+      int des = pos+pS;
+      if (des < 0 || des > 63) continue;
+      int newRow = des/8;
+      int newCol = des%8;
+      if (newRow != row && abs(row-newRow) != 1) continue;
+      if (newCol != col && abs(col-newCol) != 1) continue;
+
+      int tar = whatIsAt(des);
+      if (gs.turn == (tar/10) || tar == 0) continue;
+      if (gs.turn != (tar/10) && tar != 0) moves.push_back(des);
+    }
+  });
+}
+
+inline bool kingChecked(){
+  vector<int> enemyAttackSq;
+  gs.turn = abs(gs.turn - 1); // making the turn enemy for easy checkup
+  forPawnAttacks(5, enemyAttackSq);
+  forKnightAttack(3, enemyAttackSq);
+  forRookAttack(4, enemyAttackSq);
+  forBishopAttack(2, enemyAttackSq);
+  forQueenAttacks(1, enemyAttackSq);
+  forKingAttacks(0, enemyAttackSq);
+  gs.turn = abs(gs.turn - 1); // making the original turn
+  forEachBit(gs.bitBoards[gs.turn][0], [&](int pos){
+    if (find(enemyAttackSq.begin(), enemyAttackSq.end(), pos) != enemyAttackSq.end()) return 1;
+  });
+  return 1;
+}
+
+inline void simulateMoves(vector<Move>& moves){
+  
 }
 
 inline void forPawns(int n, vector<Move>& moves){
@@ -102,10 +227,10 @@ inline void forPawns(int n, vector<Move>& moves){
 
 inline void forRooks(int n, vector<Move>& moves){
   // for rook
+  vector<int> loopMax = {7-row, row, 7-col, col};
+  vector<int> step = {8, -8, 1, -1};
   forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
-    vector<int> loopMax = {7-row, row, 7-col, col};
-    vector<int> step = {8, -8, 1, -1};
     for (int j = 0; j <= 3; j++){
       for (int i = 1; i <= loopMax[j]; i++){
         int des = pos + step[j] * i;

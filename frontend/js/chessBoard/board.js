@@ -24,15 +24,7 @@ let animationOn = false;
 const gameVars = await getGameVars();
 const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, id} = gameVars;
 let turn = 'white';
-// console.log(gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId || roomJoinId, userId)
 
-// let bot, getBestMove;
-// if (gameMode != 'multiPlayer'){
-//   bot = await createBot({
-//     locateFile: () => '/bot/bot.wasm'
-//   });
-//   getBestMove = bot.cwrap('getBestMove', 'number', []);
-// }
 let botWorker; // seperate thread for bot
 let requestId = 1;
 const pendingReq = new Map();
@@ -46,12 +38,12 @@ if (botWorker){
     const resolve = pendingReq.get(requestId);
     if (!resolve) return;
     pendingReq.delete(requestId);
-    resolve({ bestMove, error });
+    resolve({ bestMove, error }); // passing the bestMove to the resolve function which is then obtained by makeBotMove 
   }
 }
 
 function requestBotSearch(bitBoards, color, depth){
-  return new Promise((resolve)=>{
+  return new Promise((resolve)=>{ // promised passed resolve - func
     const id = ++requestId;
     pendingReq.set(id, resolve);
     botWorker.postMessage({
