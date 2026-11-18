@@ -19,6 +19,8 @@ struct gameState{
   int color;
   int depth;
   int turn;
+  int epSquare = -1;
+  int castlingRights = 0;
 };
 
 struct Move{
@@ -27,10 +29,18 @@ struct Move{
   int promotion;
   int srcPiece;
   int targetPiece;
+  int epCapture = -1;
+  int castle = 0;
+  int prevEpSquare = -1;
+  int prevCastlingRights = 0;
 };
 
 gameState gs;
 int bestMove;
+constexpr int WK = 1; // white side king castle
+constexpr int WQ = 2; // white side queen castle
+constexpr int BK = 4;
+constexpr int BQ = 8;
 
 int whatIsAt(int pos){
   if (pos < 0 || pos >= 64) return 0;
@@ -143,8 +153,8 @@ bool isSquareAttacked(int square, int attackerColor){ // reverse checking from t
 }
 
 inline void makeMove(Move& move){
-  int sClr = move.srcPiece/10;
-  int sPis = move.srcPiece%10 - 1;
+  int sClr = move.srcPiece/10; // src piece color
+  int sPis = move.srcPiece%10 - 1; // src piece 0 1 2 3 4 5
   int tClr = move.targetPiece/10;
   int tPis = move.targetPiece%10 - 1;
   gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.from); // replacing with 0 at src
@@ -155,6 +165,16 @@ inline void makeMove(Move& move){
   if (move.promotion != 0){
     gs.bitBoards[sClr][sPis] = gs.bitBoards[sClr][sPis] & ~(1ULL << move.to); // replacing the des pawn with 0
     gs.bitBoards[sClr][move.promotion] = gs.bitBoards[sClr][move.promotion] | (1ULL << move.to); // replacing the des pawn with 0
+  }
+
+  // enpassant work
+  move.prevEpSquare = gs.epSquare; // saving the passed enpassant capturable square
+  gs.epSquare = -1; // enpassant is only capturable one time
+  if (move.epCapture != -1){ // captured enemy piece
+    gs.bitBoards[1-sClr][5] = gs.bitBoards[1-sClr][5] & ~(1ULL << move.epCapture);
+  }
+  if (sPis == 5 && std::abs(move.to - move.from) == 16){
+    gs.epSquare = move.to; // if double pawn then set epSquare
   }
   gs.turn = gs.turn == 0? 1: 0;
 }
@@ -171,6 +191,12 @@ inline void unMakeMove(Move& move){
   }
   if (move.promotion != 0){
     gs.bitBoards[sClr][move.promotion] = gs.bitBoards[sClr][move.promotion] & ~(1ULL << move.to); 
+  }
+
+  // enpassant work
+  gs.epSquare = move.prevEpSquare; // restoring enpassant capturable square
+  if (move.epCapture != -1){ 
+    gs.bitBoards[1-sClr][5] = gs.bitBoards[1-sClr][5] | (1ULL << move.epCapture); // restoring captured piece
   }
   gs.turn = gs.turn == 0? 1: 0;
 }
@@ -201,6 +227,17 @@ inline void forPawns(int n, vector<Move>& moves){
   forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
 
+    if (gs.epSquare != -1){ // if player has the 2 step pawn
+      int dir = gs.turn == 0 ? 1 : -1;
+      int epRow = gs.epSquare / 8;
+      int epCol = gs.epSquare % 8;
+      int target = gs.epSquare + dir * 8;
+      int enemyPawn = gs.turn == 0 ? 16 : 6;
+
+      if (target >= 0 && target < 64 && epRow == row && std::abs(epCol - col) == 1 && whatIsAt(gs.epSquare) == enemyPawn && whatIsAt(target) == 0){
+        moves.push_back({pos, target, 0, whatIsAt(pos), 0, gs.epSquare});
+      }
+    }
     for (int& pS: pawnShift){
       int des = pos+(gs.turn == 0? 1:-1)*pS;
       if (des < 0 || des > 63) continue;
@@ -308,6 +345,39 @@ inline void forQueen(int n, vector<Move>& moves){
   forBishops(n, moves);
 }
 
+inline bool canCastle(int color, int side){
+  int kingPos = color == 0 ? 4 : 60; // white and black king position
+  int kingCode = color == 0 ? 1 : 11; 
+  int rookCode = color == 0 ? 5 : 15;
+  int rookFrom = color == 0 ? (side == 1 ? 7 : 0): (side == 1 ? 63 : 56); // side 1 and 2 is king and queen side
+
+  if (whatIsAt(kingPos) != kingCode || whatIsAt(rookFrom) != rookCode) return false; // king and rook have to be in orignial position
+  int whichSide = color == 0? (side == 1 ? WK : WQ): (side == 1 ? BK : BQ);
+  if (!(gs.castlingRights & whichSide)) return false;
+  int step1 = color == 0? (side == 1 ? 5 : 3): (side == 1 ? 61 : 59);
+  int step2 = color == 0? (side == 1 ? 6 : 2): (side == 1 ? 62 : 58);
+
+  if (whatIsAt(step1) || whatIsAt(step2))
+    return false;
+
+  if (side == 2){
+    int bSquare = color == 0 ? 1 : 57;
+    if (whatIsAt(bSquare))
+      return false;
+  }
+
+  int enemy = 1 - color;
+
+  if (isSquareAttacked(kingPos, enemy))
+    return false;
+  if (isSquareAttacked(step1, enemy))
+    return false;
+  if (isSquareAttacked(step2, enemy))
+    return false;
+
+  return true;
+}
+
 inline void forKing(int n, vector<Move>& moves){
   // for pawn
   vector<int> kingShift = {1, -1, 7, -7, 8, -8, 9, -9}; // attack, attack, single step, double step
@@ -361,7 +431,6 @@ int evaluate(){
 int nodes = 0;
 int negaMax(int alpha, int beta, int depth){
   vector<Move> moves = moveGenerator();
-  bestMove = 0;
   int bestScore = -numeric_limits<int>::max();
   if (moves.empty()){
     // if (kingChecked())
@@ -391,14 +460,18 @@ int negaMax(int alpha, int beta, int depth){
 EXTERN // to prevent name mangling
 EMSCRIPTEN_KEEPALIVE // when compiled to wasm to prevent striping the function since it is not called
 int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB, uint64_t wP,
-  uint64_t bK, uint64_t bN, uint64_t bQ, uint64_t bR, uint64_t bB, uint64_t bP, int color, int depth)
+  uint64_t bK, uint64_t bN, uint64_t bQ, uint64_t bR, uint64_t bB, uint64_t bP, int color, int depth, int epSquare, int castlingRights)
   {
     gs.bitBoards[0][0] = wK; gs.bitBoards[0][1] = wQ; gs.bitBoards[0][2] = wB; gs.bitBoards[0][3] = wN; gs.bitBoards[0][4] = wR; gs.bitBoards[0][5] = wP;
     gs.bitBoards[1][0] = bK; gs.bitBoards[1][1] = bQ; gs.bitBoards[1][2] = bB; gs.bitBoards[1][3] = bN; gs.bitBoards[1][4] = bR; gs.bitBoards[1][5] = bP;
     gs.color = color; // 0 white 1 black
     gs.turn = color;
     gs.depth = depth;
+    gs.epSquare = epSquare;
+    gs.castlingRights = castlingRights;
 
+    bestMove = 0;
+    nodes = 0;
     int alpaBeta = numeric_limits<int>::max();
     int score = negaMax(-alpaBeta, alpaBeta ,gs.depth); // alpha(my best) beta(opp best) depth
 
