@@ -310,7 +310,7 @@ class Square{
 
 let botPromote = 0;
 async function makeBotMove(){
-  let depth = 4;
+  let depth = 5;
   const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
     gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS];
   const epSquare = gameState.twoSqPawn.length ? gameState.twoSqPawn[0] : -1;

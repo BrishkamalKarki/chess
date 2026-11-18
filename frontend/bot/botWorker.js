@@ -6,9 +6,9 @@ const bot = await createBot({
 }) 
 
 self.onmessage = (event) => {
-  const {bitBoards, color, depth, requestId} = event.data;
+  const {requestId, bitBoards, color, depth, epSquare,  castlingRights} = event.data;
   try{
-    const bestMove = bot._getBestMove(...bitBoards, color, depth);
+    const bestMove = bot._getBestMove(...bitBoards, color, depth, epSquare, castlingRights);
     self.postMessage({requestId, bestMove});
   }
   catch (error){

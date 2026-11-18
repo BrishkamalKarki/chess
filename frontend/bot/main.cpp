@@ -176,6 +176,35 @@ inline void makeMove(Move& move){
   if (sPis == 5 && std::abs(move.to - move.from) == 16){
     gs.epSquare = move.to; // if double pawn then set epSquare
   }
+
+  // castling
+  move.prevCastlingRights = gs.castlingRights;
+  if (move.castle == 1){// king side
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] & ~(1ULL << (sClr == 0? 7: 63));
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] | (1ULL << (sClr == 0? 7-2: 63-2));
+  }
+  else if (move.castle == 2){// queen side
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] & ~(1ULL << (sClr == 0? 0: 56));
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] | (1ULL << (sClr == 0? 3: 59));
+  }
+
+  if (sPis == 0){ // if king is moved
+    gs.castlingRights = gs.castlingRights & (sClr == 0? ~(WK|WQ): ~(BK|BQ));
+  } // 1|2 01|10 11 => ...1111100 and  4|8 0100|1000 1100 => ...11110011
+
+  if (sPis == 4){ // if rook moved then not giving respective side rights
+    if (move.from == 0) gs.castlingRights &= ~WQ;
+    if (move.from == 7) gs.castlingRights &= ~WK;
+    if (move.from == 56) gs.castlingRights &= ~BQ;
+    if (move.from == 63) gs.castlingRights &= ~BK;
+  }
+
+  // if anything moves to rook position take the right
+  if (move.to == 0) gs.castlingRights &= ~WQ;
+  if (move.to == 7) gs.castlingRights &= ~WK;
+  if (move.to == 56) gs.castlingRights &= ~BQ;
+  if (move.to == 63) gs.castlingRights &= ~BK;
+
   gs.turn = gs.turn == 0? 1: 0;
 }
 
@@ -198,6 +227,18 @@ inline void unMakeMove(Move& move){
   if (move.epCapture != -1){ 
     gs.bitBoards[1-sClr][5] = gs.bitBoards[1-sClr][5] | (1ULL << move.epCapture); // restoring captured piece
   }
+
+  // castling
+  gs.castlingRights = move.prevCastlingRights; // restoring
+  if (move.castle == 1){// king side
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] | (1ULL << (sClr == 0? 7: 63));
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] & ~(1ULL << (sClr == 0? 7-2: 63-2));
+  }
+  else if (move.castle == 2){// queen side
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] | (1ULL << (sClr == 0? 0: 56));
+    gs.bitBoards[sClr][4] = gs.bitBoards[sClr][4] & ~(1ULL << (sClr == 0? 3: 59));
+  }
+
   gs.turn = gs.turn == 0? 1: 0;
 }
 
@@ -346,34 +387,28 @@ inline void forQueen(int n, vector<Move>& moves){
 }
 
 inline bool canCastle(int color, int side){
-  int kingPos = color == 0 ? 4 : 60; // white and black king position
-  int kingCode = color == 0 ? 1 : 11; 
-  int rookCode = color == 0 ? 5 : 15;
-  int rookFrom = color == 0 ? (side == 1 ? 7 : 0): (side == 1 ? 63 : 56); // side 1 and 2 is king and queen side
+  int kingPos = color == 0? 4 : 60; // white and black king position
+  int enemy = 1 - color;
+  if (isSquareAttacked(kingPos, enemy)) return false;
+  int kingCode = color == 0? 1 : 11; 
+  int rookCode = color == 0? 5 : 15;
+  int rookFrom = color == 0? (side == 1? 7 : 0): (side == 1? 63 : 56); // side 1 and 2 is king and queen side
 
   if (whatIsAt(kingPos) != kingCode || whatIsAt(rookFrom) != rookCode) return false; // king and rook have to be in orignial position
-  int whichSide = color == 0? (side == 1 ? WK : WQ): (side == 1 ? BK : BQ);
-  if (!(gs.castlingRights & whichSide)) return false;
-  int step1 = color == 0? (side == 1 ? 5 : 3): (side == 1 ? 61 : 59);
-  int step2 = color == 0? (side == 1 ? 6 : 2): (side == 1 ? 62 : 58);
+  int whichSide = color == 0? (side == 1? WK : WQ): (side == 1? BK : BQ);
+  if (!(gs.castlingRights & whichSide)) return false; // initially 1111 & 0001 or 0010 or 0100 or 1000
+  // 0011 no white right if tried to access the white right 1000 or 0100 then false
+  int step1 = color == 0? (side == 1? 5 : 3): (side == 1? 61 : 59); // square king passes through
+  int step2 = color == 0? (side == 1? 6 : 2): (side == 1? 62 : 58); // king lands on
+  if (whatIsAt(step1) != 0 || whatIsAt(step2) != 0) return false; // if both place is not empty
+  if (isSquareAttacked(step1, enemy)) return false;
+  if (isSquareAttacked(step2, enemy)) return false;
 
-  if (whatIsAt(step1) || whatIsAt(step2))
-    return false;
-
-  if (side == 2){
+  if (side == 2){ // 1 extra has square in queens side 
     int bSquare = color == 0 ? 1 : 57;
-    if (whatIsAt(bSquare))
+    if (whatIsAt(bSquare) != 0) // has to be empty
       return false;
   }
-
-  int enemy = 1 - color;
-
-  if (isSquareAttacked(kingPos, enemy))
-    return false;
-  if (isSquareAttacked(step1, enemy))
-    return false;
-  if (isSquareAttacked(step2, enemy))
-    return false;
 
   return true;
 }
@@ -384,6 +419,23 @@ inline void forKing(int n, vector<Move>& moves){
   forEachBit(gs.bitBoards[gs.turn][n], [&](int pos){
     int row = pos/8; int col = pos%8;
     
+    int home = gs.turn == 0 ? 4 : 60;
+      // castling 
+      if (pos == home){
+      if (canCastle(gs.turn, 1)){
+        if (gs.turn == 0)
+          moves.push_back({pos, 6, 0, whatIsAt(pos), 0, -1, 1});
+        else
+          moves.push_back({pos, 62, 0, whatIsAt(pos), 0, -1, 1});
+      }
+      if (canCastle(gs.turn, 2)){
+        if (gs.turn == 0)
+          moves.push_back({pos, 2, 0, whatIsAt(pos), 0, -1, 2});
+        else
+          moves.push_back({pos, 58, 0, whatIsAt(pos), 0, -1, 2});
+      }
+    }
+
     for (int& pS: kingShift){
       int des = pos+pS;
       if (des < 0 || des > 63) continue;
@@ -402,12 +454,12 @@ inline void forKing(int n, vector<Move>& moves){
 vector<Move> moveGenerator(){
   vector<Move> moves;
   forPawns(5, moves);
-  // forKnights(3, moves);
-  // forRooks(4, moves);
-  // forBishops(2, moves);
-  // forQueen(1, moves);
-  // forKing(0, moves);
-  // simulateMoves(moves);
+  forKnights(3, moves);
+  forRooks(4, moves);
+  forBishops(2, moves);
+  forQueen(1, moves);
+  forKing(0, moves);
+  simulateMoves(moves);
   return moves;
 }
 
