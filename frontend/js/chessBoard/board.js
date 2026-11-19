@@ -310,7 +310,7 @@ class Square{
 
 let botPromote = 0;
 async function makeBotMove(){
-  let depth = 5;
+  let depth = 6;
   const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
     gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS];
   const epSquare = gameState.twoSqPawn.length ? gameState.twoSqPawn[0] : -1;
@@ -378,14 +378,13 @@ canvas.addEventListener('pointerdown', async (event)=>{
       // console.log(gameState.whiteCastled, gameState.whiteKRookMoved, gameState.whiteQRookMoved, ' are white castled k rook and q  rook moved')
       // console.log(((getCp(gameState.WHITE_KING) >> BigInt(clickedSrc)) & 1n) , Math.abs(clickedDes - clickedSrc), clickedDes, clickedSrc , turn,gameState.WHITE_KING)
       // checkCastleUtils(turn, clickedSrc);
-      const point = getPoint(clickedDes);
+      const point = getPoint(clickedDes, gameState);
       if (point != 0){
-        document.getElementById('youPoint').textContent = Number(document.getElementById('youPoint').textContent) + point;
+        document.getElementById('youPoint').textContent = `+${Number(document.getElementById('youPoint').textContent) + point}`;
       }
       if (possibleSqs.includes(clickedDes)){
         movePiece();
       }
-      // turn = turn == 'white' ? 'black' : 'white';
     }
   }
 });
@@ -535,6 +534,10 @@ function animate(timestamp){ // animating the piece move
     const enemyPawnBoard = movingWhitePawn? gameState.BLACK_PAWNS : gameState.WHITE_PAWNS;
     const enPassantCapture = enPawn != -1 && movedPawn && !isPiece(gameState.BLACK_WHITE, clickedDes) && clickedDes == (movingWhitePawn ? enPawn + 8 : enPawn - 8) &&
     Math.floor(clickedSrc / 8) == enRow && Math.abs((clickedSrc % 8) - (enPawn % 8)) == 1 && isPiece(enemyPawnBoard, enPawn);
+    
+    const point = getPoint(clickedDes, gameState);
+    if (point != 0 && gameMode != 'multiPlayer' && turn != playedAs) // bot points
+      document.getElementById('oppPoint').textContent = `+${Number(document.getElementById('oppPoint').textContent) + point}`;
 
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
@@ -689,6 +692,7 @@ function animate(timestamp){ // animating the piece move
 
     if (!promoting)
       turn = turn == 'white' ? 'black' : 'white';
+    console.log(turn)
 
     // after making the move fully and flipping hte turn
     if (!gameOver && checkCheckMate(gameState, turn)){
@@ -749,6 +753,13 @@ function movePiece(){ // calculating things for the animation
 socket.on('apply move', (src, des)=>{
   clickedDes = des;
   clickedSrc = src;
+  const point = getPoint(clickedDes, gameState);
+  if (point != 0){
+    if (playedAs == turn)
+      document.getElementById('youPoint').textContent = `+${Number(document.getElementById('youPoint').textContent) + point}`;
+    else 
+      document.getElementById('oppPoint').textContent = `+${Number(document.getElementById('oppPoint').textContent) + point}`;
+  }
   movePiece();
 })
 

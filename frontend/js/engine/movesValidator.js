@@ -244,19 +244,21 @@ function getCp(cp){
   return cp;
 }
 
-function whatIsAt(pos){
-  if ((getCp(pieceToBitBoard['wR']) >> BigInt(pos)) & 1n) return 'wR';
-  else if ((getCp(pieceToBitBoard['wN']) >> BigInt(pos)) & 1n) return 'wN';
-  else if ((getCp(pieceToBitBoard['wB']) >> BigInt(pos)) & 1n) return 'wB';
-  else if ((getCp(pieceToBitBoard['wK']) >> BigInt(pos)) & 1n) return 'wK';
-  else if ((getCp(pieceToBitBoard['wQ']) >> BigInt(pos)) & 1n) return 'wQ';
-  else if ((getCp(pieceToBitBoard['wP']) >> BigInt(pos)) & 1n) return 'wP';
-  else if ((getCp(pieceToBitBoard['bR']) >> BigInt(pos)) & 1n) return 'bR';
-  else if ((getCp(pieceToBitBoard['bN']) >> BigInt(pos)) & 1n) return 'bN';
-  else if ((getCp(pieceToBitBoard['bB']) >> BigInt(pos)) & 1n) return 'bB';
-  else if ((getCp(pieceToBitBoard['bK']) >> BigInt(pos)) & 1n) return 'bK';
-  else if ((getCp(pieceToBitBoard['bQ']) >> BigInt(pos)) & 1n) return 'bQ';
-  else if ((getCp(pieceToBitBoard['bP']) >> BigInt(pos)) & 1n) return 'bP';
+function whatIsAt(pos, gs = null){
+  const boards = gs ? buildPieceToBitBoard(gs) : pieceToBitBoard;
+  if (!boards) return ' ';
+  if ((getCp(boards['wR']) >> BigInt(pos)) & 1n) return 'wR';
+  else if ((getCp(boards['wN']) >> BigInt(pos)) & 1n) return 'wN';
+  else if ((getCp(boards['wB']) >> BigInt(pos)) & 1n) return 'wB';
+  else if ((getCp(boards['wK']) >> BigInt(pos)) & 1n) return 'wK';
+  else if ((getCp(boards['wQ']) >> BigInt(pos)) & 1n) return 'wQ';
+  else if ((getCp(boards['wP']) >> BigInt(pos)) & 1n) return 'wP';
+  else if ((getCp(boards['bR']) >> BigInt(pos)) & 1n) return 'bR';
+  else if ((getCp(boards['bN']) >> BigInt(pos)) & 1n) return 'bN';
+  else if ((getCp(boards['bB']) >> BigInt(pos)) & 1n) return 'bB';
+  else if ((getCp(boards['bK']) >> BigInt(pos)) & 1n) return 'bK';
+  else if ((getCp(boards['bQ']) >> BigInt(pos)) & 1n) return 'bQ';
+  else if ((getCp(boards['bP']) >> BigInt(pos)) & 1n) return 'bP';
   return ' ';
 }
 
@@ -519,8 +521,8 @@ function isPromoted(src, des, gs){
   return false;
 }
 
-function getPoint(des){
-  const piece = whatIsAt(des);
+function getPoint(des, gs){
+  const piece = whatIsAt(des, gs);
   if (piece == ' ') return 0;
   const pieceTopoints = {'P': 1, 'R': 5, 'B': 3, 'N': 3, 'Q': 8};
   return pieceTopoints[piece[1]];

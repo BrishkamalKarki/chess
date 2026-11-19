@@ -9,20 +9,29 @@
 #include <utility>
 #include <bit>
 #include <random>
+#include <chrono>
 
 #define EXTERN extern "C" 
+// tt content
+#define hashExact 0 // better score not found but not prunning(alpha/score > beta)
+#define hashAlpha 1 // better score found to improve alpha
+#define hashBeta 2 // prune
+#define ttSize 0x5000000 // transpotion table size in hex
 
 using namespace std;
 
+// game state for overall game
 struct gameState{
   uint64_t bitBoards[2][6];
   int color;
   int depth;
+  int qDepth;
   int turn;
   int epSquare = -1;
   int castlingRights = 0;
 };
 
+// each move
 struct Move{
   int from;
   int to;
@@ -35,7 +44,17 @@ struct Move{
   int prevCastlingRights = 0;
 };
 
+// transposition table structure
+struct hashTable{
+  int key;
+  int depth;
+  int value;
+  int hasFlag;
+  Move best;
+};
+
 gameState gs;
+hashTable hT[ttSize];
 int bestMove;
 constexpr int WK = 1; // white side king castle
 constexpr int WQ = 2; // white side queen castle
@@ -451,6 +470,15 @@ inline void forKing(int n, vector<Move>& moves){
   });
 }
 
+// inline howManyPiece(int color, int n){
+//   int pieceNo = 0;
+//   forEachBit(gs.bitBoards[pieceNo][n], [&](int pos){
+//     pieceNo++;
+//   });
+
+//   return pieceNo;
+// }
+
 vector<Move> moveGenerator(){
   vector<Move> moves;
   forPawns(5, moves);
@@ -489,29 +517,81 @@ int moveOrderEvaluator(const Move& move){
     int srcPiece = move.srcPiece%10 - 1;
     score += 10000 + PIECE_VALUES[targetPiece] * 10 - PIECE_VALUES[srcPiece]; // lower the piece eats higher the piece it is good
   }
-
+  
   if (move.promotion != 0){
     score += 20000 + PIECE_VALUES[move.promotion] * 10; // promotion > normal attacks
   }
-
+  
   return score;
 }
 
-int negaMax(int alpha, int beta, int depth){
-  vector<Move> moves = moveGenerator();
+vector<Move> filterNonAtckMove(vector<Move>& moves){
+  vector<Move> attackingMoves;
+  for (auto& mv: moves){
+    if (mv.targetPiece != 0 || mv.promotion != 0 || mv.epCapture != -1) attackingMoves.push_back(mv);
+  }
+  return attackingMoves;
+}
 
+int iterationDepth = 0;
+int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the depth until there is normal move
+  bool inCheck = isKingInCheck(gs.turn);
+  int bestScore = -numeric_limits<int>::max();
+  
+  
+  vector<Move> moves = moveGenerator();
+  if (moves.empty()){
+    if (inCheck) return -30000 + gs.qDepth + gs.depth - depth; // checkmage score
+    return 0; // stalemate score 
+  }
+  
+  if (!inCheck){ // stand-pat evalutaion not allowed in check
+    int stand = evaluate(); // stand pat - 
+    if (stand >= beta) return stand; // the opponent will never allow this position
+    if (stand > alpha) alpha = stand;        
+    bestScore = stand;
+    if (depth <= 0) return bestScore;
+  }
+  else if (depth < -3) return evaluate();
+  if (!inCheck) moves = filterNonAtckMove(moves); 
+  
   // sorting the moves based on the good moves giving first priority
   sort(moves.begin(), moves.end(), [](Move& M1, Move& M2){
     return moveOrderEvaluator(M1) > moveOrderEvaluator(M2);
   });
 
+  for (auto& move: moves){
+    makeMove(move);
+    int score = -quiescenceSearch(-beta, -alpha, depth - 1); // current depth 1
+    nodes++;
+    unMakeMove(move);
+    if (score > bestScore){
+      bestScore = score;
+    }
+    alpha = max(alpha, score);
+    if (alpha >= beta) break; 
+  }
+  return bestScore;
+}
+
+int negaMax(int alpha, int beta, int depth){
+  vector<Move> moves = moveGenerator();
+  
   int bestScore = -numeric_limits<int>::max();
   if (moves.empty()){
-    // if (kingChecked())
-    //   return gs.depth - depth;
-    return 0;
+    if (isKingInCheck(gs.turn)) return -30000 + gs.depth - depth;
+    return 0; // stalemate score
   }
-  if (depth == 0) return evaluate();
+  if (depth == 0){ 
+    if (gs.qDepth != 0)
+    return quiescenceSearch(alpha, beta, gs.qDepth);
+    return evaluate();
+  }
+  // sorting the moves based on the good moves giving first priority
+  sort(moves.begin(), moves.end(), [](Move& M1, Move& M2){
+    return moveOrderEvaluator(M1) > moveOrderEvaluator(M2);
+  });
+
   for (auto& move: moves){
     makeMove(move);
     int score = -negaMax(-beta, -alpha, depth - 1);
@@ -519,7 +599,7 @@ int negaMax(int alpha, int beta, int depth){
     unMakeMove(move);
     if (score > bestScore){
       bestScore = score;
-      if (depth == gs.depth){
+      if (depth == iterationDepth){
         bestMove = move.from * 100 + move.to;
         bestMove = bestMove * 10 + move.promotion;
       }
@@ -543,11 +623,20 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     gs.depth = depth;
     gs.epSquare = epSquare;
     gs.castlingRights = castlingRights;
-
+    gs.qDepth = 2;
+    auto timeMax = chrono::milliseconds(10000);; // 10 seconds 
     bestMove = 0;
     nodes = 0;
     int alpaBeta = numeric_limits<int>::max();
-    int score = negaMax(-alpaBeta, alpaBeta ,gs.depth); // alpha(my best) beta(opp best) depth
+    // iterative deepning
+    auto start = std::chrono::steady_clock::now();
+    for (int dpth = 1; dpth <= gs.depth; dpth++){
+      iterationDepth = dpth;
+      int score = negaMax(-alpaBeta, alpaBeta ,dpth); // alpha(my best) beta(opp best) depth
+      auto end = std::chrono::steady_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
+      if (elapsed >= timeMax) break;
+    }
 
     printf("The best move is and node is: %d %d %d\n", bestMove/100, bestMove%100, nodes);
   return bestMove;
