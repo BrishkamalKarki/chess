@@ -16,7 +16,7 @@
 #define hashExact 0 // better score not found but not prunning(alpha/score > beta)
 #define hashAlpha 1 // better score found to improve alpha
 #define hashBeta 2 // prune
-#define ttSize 0x5000000 // transpotion table size in hex
+#define ttSize (1<<20) // 1,048,576 entries
 
 using namespace std;
 
@@ -46,11 +46,11 @@ struct Move{
 
 // transposition table structure
 struct hashTable{
-  int key;
+  uint64_t hashKey;
   int depth;
   int value;
-  int hasFlag;
-  Move best;
+  int hashFlag;
+  int valid;
 };
 
 gameState gs;
@@ -60,6 +60,93 @@ constexpr int WK = 1; // white side king castle
 constexpr int WQ = 2; // white side queen castle
 constexpr int BK = 4;
 constexpr int BQ = 8;
+
+// position giver
+inline void forEachBit(uint64_t bB, auto callback){ // faster version of getPos
+  while(bB){
+    int pos = std::countr_zero(bB); // gives postion of the first 1 from the rightside
+    callback(pos); // for each 1's position calls the passed lambda
+    bB &= bB - 1; // removing rightmost set bit
+  }
+}
+
+// zobrist hash table - unique hash for each 64 position for each piece, enpassant pawn, castling side
+uint64_t zPiece[2][6][64];
+uint64_t zSide[2];
+uint64_t zCastleRight[4]; // wK WQ bK bQ
+uint64_t zEnpassantP[8];
+
+// initialize hash table zobrist
+inline void initZHashTable(){
+  static bool initialized = false; // global variable remains in wasp linear memory
+  if (initialized) return;
+  std::mt19937_64 randNumGen(std::random_device{}()); // provide  seed for init
+  for (int clr = 0; clr <= 1; clr++){
+    for (int piece = 0; piece <= 5; piece++){
+      for (int pos = 0; pos <= 63; pos++){
+        zPiece[clr][piece][pos] = randNumGen();
+      }
+    }
+    zSide[clr] = randNumGen();
+  }
+  for (int i = 0; i < 4; i++) zCastleRight[i] = randNumGen();
+  for (int i = 0; i < 8; i++) zEnpassantP[i] = randNumGen();
+  initialized = true;
+}
+
+// generate hash from gamestate - zobrist hashing
+inline uint64_t generateHash(){
+  uint64_t hashKey = 0;
+  // each piece position hash - xor
+  for (int index = 0; index <= 5; index++){
+    forEachBit(gs.bitBoards[0][index], [&](int pos){
+      hashKey ^= zPiece[0][index][pos]; // for white piece
+    }); // white piece
+    forEachBit(gs.bitBoards[1][index], [&](int pos){
+      hashKey ^= zPiece[1][index][pos]; // for black piece
+    }); // black piece
+  }
+
+  if (gs.castlingRights != 0){
+    forEachBit(gs.castlingRights, [&](int pos){
+      hashKey ^= zCastleRight[pos]; // for white piece
+    });
+  }
+
+  hashKey ^= zSide[gs.turn]; // white turn = 0 black = 1
+  if (gs.epSquare != -1) // enpassant capturable pawn position in enemy
+    hashKey ^= zEnpassantP[gs.epSquare%8];
+  return hashKey;
+}
+
+inline void storeTt(uint64_t& hashKey, int& depth, int& score, int& flag){
+  int index = hashKey % ttSize; // random index
+  if (hT[index].valid && hT[index].depth > depth) return;
+  hT[index] = {hashKey, depth, score, flag, 1};
+}
+
+inline void clearTt(){
+  for (auto& entry : hT)
+    entry = hashTable{};
+}
+
+constexpr int valUNKNOWN = numeric_limits<int>::min();
+inline int getScore(int& depth, int alpha, int beta, uint64_t key){
+  hashTable *hashData = &hT[key%ttSize];
+  if (!hashData->valid || hashData->hashKey != key) return valUNKNOWN;
+  if (hashData->depth < depth) return valUNKNOWN;
+
+  if (hashData->hashFlag == hashExact) // the score of the higher or = depth should be used - more explored - but not 100% that deeper eval is better
+    return hashData->value;
+
+  if (hashData->hashFlag == hashAlpha && hashData->value <= alpha)
+    return hashData->value;
+
+  if (hashData->hashFlag == hashBeta && hashData->value >= beta)
+    return hashData->value;
+
+  return valUNKNOWN;
+}
 
 int whatIsAt(int pos){
   if (pos < 0 || pos >= 64) return 0;
@@ -87,14 +174,6 @@ inline vector<int> getPos(uint64_t bB){
     if ((bB >> i) & 1ULL) pos.push_back(i);
   }
   return pos;
-}
-
-inline void forEachBit(uint64_t bB, auto callback){ // faster version of getPos
-  while(bB){
-    int pos = std::countr_zero(bB); // gives postion of the first 1 from the rightside
-    callback(pos); // for each 1's position calls the passed lambda
-    bB &= bB - 1; // removing rightmost set bit
-  }
 }
 
 bool isSquareAttacked(int square, int attackerColor){ // reverse checking from the destination to the src if src has enemy piece or not 
@@ -470,14 +549,45 @@ inline void forKing(int n, vector<Move>& moves){
   });
 }
 
-// inline howManyPiece(int color, int n){
-//   int pieceNo = 0;
-//   forEachBit(gs.bitBoards[pieceNo][n], [&](int pos){
-//     pieceNo++;
-//   });
+inline int checkInsufMats(){
+  int Q = 0, B = 0, N = 0, R = 0, P = 0;
+  int pieceAmt[5] = {};
+  // count all
+  int whiteColor = -1;  // bishops
+  int blackColor = -1;
+  for (int i = 0; i <= 4; i++){
+    forEachBit(gs.bitBoards[0][i+1], [&](int pos){
+      pieceAmt[i]++;
+      if (i == 1)
+        whiteColor = pos;
+    });
+  }
+  for (int i = 0; i <= 4; i++){
+    forEachBit(gs.bitBoards[1][i+1], [&](int pos){
+      pieceAmt[i]++;
+      if (i == 1)
+        blackColor = pos;
+    });
+  }
 
-//   return pieceNo;
-// }
+  int totalQ = pieceAmt[0];
+  int totalB = pieceAmt[1];
+  int totalN = pieceAmt[2];
+  int totalR = pieceAmt[3];
+  int totalP = pieceAmt[4];
+
+  if (totalQ == 0 && totalR == 0 && totalP == 0){ // presence of any of these leads to checkmate
+    // king vs King
+    if (totalB == 0 && totalN == 0) return 1;
+    // king + one minor piece vs king
+    if (totalB + totalN == 1) return 1;
+    // king + bishops vs King + bishops, same-colored squares
+    if (totalB == 2 && totalN == 0){
+      if (blackColor%2 == whiteColor%2) return 1;
+    }
+  }
+  return 0;
+}
 
 vector<Move> moveGenerator(){
   vector<Move> moves;
@@ -574,17 +684,27 @@ int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the de
   return bestScore;
 }
 
+int storedScore = 0;
 int negaMax(int alpha, int beta, int depth){
+  int originalAlpha = alpha;
+  int flag = -1;
+  uint64_t hash = generateHash();
+  // if (hT[hash%ttSize].hashKey == hash)
+  //   return hT[hash%ttSize].value;
+  if ((storedScore = getScore(depth, alpha, beta, hash)) != valUNKNOWN) 
+    return storedScore;
+
   vector<Move> moves = moveGenerator();
-  
   int bestScore = -numeric_limits<int>::max();
   if (moves.empty()){
     if (isKingInCheck(gs.turn)) return -30000 + gs.depth - depth;
     return 0; // stalemate score
   }
+  
+  if (checkInsufMats()) return 0; // insufficient materials
   if (depth == 0){ 
     if (gs.qDepth != 0)
-    return quiescenceSearch(alpha, beta, gs.qDepth);
+      return quiescenceSearch(alpha, beta, gs.qDepth);
     return evaluate();
   }
   // sorting the moves based on the good moves giving first priority
@@ -595,6 +715,7 @@ int negaMax(int alpha, int beta, int depth){
   for (auto& move: moves){
     makeMove(move);
     int score = -negaMax(-beta, -alpha, depth - 1);
+
     nodes++;
     unMakeMove(move);
     if (score > bestScore){
@@ -605,17 +726,27 @@ int negaMax(int alpha, int beta, int depth){
       }
     }
     alpha = max(alpha, score);
-    if (alpha >= beta) break; // pruned
+    if (alpha >= beta){
+      break; // pruned
+    } 
   }
+  if (bestScore <= originalAlpha)
+    flag = hashAlpha; 
+  else if (bestScore >= beta)
+    flag = hashBeta;   
+  else
+    flag = hashExact;
+  storeTt(hash, depth, bestScore, flag);
+
   return bestScore;
 }
-
 
 EXTERN // to prevent name mangling
 EMSCRIPTEN_KEEPALIVE // when compiled to wasm to prevent striping the function since it is not called
 int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB, uint64_t wP,
   uint64_t bK, uint64_t bN, uint64_t bQ, uint64_t bR, uint64_t bB, uint64_t bP, int color, int depth, int epSquare, int castlingRights)
-  {
+  { 
+    initZHashTable();
     gs.bitBoards[0][0] = wK; gs.bitBoards[0][1] = wQ; gs.bitBoards[0][2] = wB; gs.bitBoards[0][3] = wN; gs.bitBoards[0][4] = wR; gs.bitBoards[0][5] = wP;
     gs.bitBoards[1][0] = bK; gs.bitBoards[1][1] = bQ; gs.bitBoards[1][2] = bB; gs.bitBoards[1][3] = bN; gs.bitBoards[1][4] = bR; gs.bitBoards[1][5] = bP;
     gs.color = color; // 0 white 1 black
