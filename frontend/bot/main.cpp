@@ -685,7 +685,7 @@ constexpr int kingPST[64] = {
   -30,-40,-40,-50,-50,-40,-40,-30
 };
 
-inline int positionalBonus(){
+inline int positionalBonus(){ 
   int score = 0;
   const int* PST[6] = {kingPST, queenPST, bishopPST, knightPST, rookPST, pawnPST}; // array of pointers
   for (int clr = 0; clr <= 1; clr++){
@@ -700,9 +700,66 @@ inline int positionalBonus(){
   return score;
 }
 
+inline int pawnPeriPheralChecker(int turn, int srcPos, int top, int down, int lf, int rg, int tr, int tl, int dr, int dl){ // checks how many side has pawn around it
+  int num = 0;
+  int scrRow = srcPos/8;
+  int srcCol = srcPos%8;
+  forEachBit(gs.bitBoards[turn][5], [&](int pos){
+    int row = pos/8;
+    int col = pos%8;
+    if (top || down)
+      if ((srcCol == col)) num++;
+    if (tr || tl) 
+      if ((turn == 0? (scrRow-row)==1: (scrRow-row)==-1) && (abs(srcCol-col)==1)) num++;
+    if (dr || dl)
+      if ((turn == 0? (scrRow-row)==-1: (scrRow-row)==1) && (abs(srcCol-col)==1)) num++;
+    if (lf || rg) // left right
+      if (abs(srcCol-col)==1 && scrRow == row) num++;
+  });
+  return num;
+}
+
+int PAWN_STRUCT_SCORE[3] = {-15, 5, -15} // doubled pawn (penalty), protected pawn, isolated pawn
+inline int pawnStructScore(){
+  int score = 0;
+  forEachBit(gs.bitBoards[0][5], [&](int pos){
+    int doublePawn = pawnPeriPheralChecker(1, pos, 1, 1, 0, 0, 0, 0, 0, 0);
+    int protectedPawn = pawnPeriPheralChecker(1, pos, 0, 0, 0, 0, 1, 1, 0, 0); // protected by this pawn
+    int isolatedPawn = pawnPeriPheralChecker(1, pos, 1, 1, 1, 1, 1, 1, 1, 1);
+    if (doublePawn > 0)
+      score += PAWN_STRUCT_SCORE[0] / doublePawn;
+    score += protectedPawn*PAWN_STRUCT_SCORE[1] + isolatedPawn*PAWN_STRUCT_SCORE[2];
+  }); 
+  forEachBit(gs.bitBoards[1][5], [&](int pos){
+    int doublePawn = pawnPeriPheralChecker(0, pos, 1, 1, 0, 0, 0, 0, 0, 0);
+    int protectedPawn = pawnPeriPheralChecker(0, pos, 0, 0, 0, 0, 1, 1, 0, 0); // protected by this pawn
+    int isolatedPawn = pawnPeriPheralChecker(0, pos, 1, 1, 1, 1, 1, 1, 1, 1
+    if (doublePawn > 0)
+      score += PAWN_STRUCT_SCORE[0] / doublePawn;
+    score += protectedPawn*PAWN_STRUCT_SCORE[1] + isolatedPawn*PAWN_STRUCT_SCORE[2];  
+  });
+  return score;
+}
+
+constexpr int BISHOP_PAIR_BONUS = 30;
+inline int bishopPairBonus(){ // both bishop pair are powerfull since they control both colored square
+  int score = 0;
+  int wBisop = 0;
+  int bBisop = 0;
+  forEachBit(gs.bitBoards[0][2], [&](int pos){
+    wBisop++;
+  }); 
+  forEachBit(gs.bitBoards[1][2], [&](int pos){
+    bBisop++;
+  });
+  if (wBisop > 1) score += BISHOP_PAIR_BONUS;
+  if (bBisop > 1) score -= BISHOP_PAIR_BONUS;
+  return score;
+}
+
 int evaluate(){
   int ttlScore = 0;
-  ttlScore += materialAdv() + positionalBonus();
+  ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus();
   return ttlScore;
 }
 
