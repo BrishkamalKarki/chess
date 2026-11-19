@@ -539,11 +539,11 @@ function howMany(bB){
 function isInsuffMats(gs){
   const pieceToBitBoard = buildPieceToBitBoard(gs);
   let white = {'K': 0, 'N': 0, 'P': 0, 'R': 0, 'B': 0, 'Q': 0};
-  let black = {'K': 0, 'N': 0, 'P': 0, 'R': 0, 'B': 0, 'Q': 0};;
+  let black = {'K': 0, 'N': 0, 'P': 0, 'R': 0, 'B': 0, 'Q': 0};
   for (const [key, value] of Object.entries(pieceToBitBoard)){
     if (key == 'bPl' || key == 'wPl') continue;
-    if (value == 0b0n) continue;
-    const p = value[1];
+    if (value == 0n) continue;
+    const p = key[1];
     if (key[0] == 'w'){
       if (p == 'K') white.K++;
       if (p == 'Q') white.Q++;

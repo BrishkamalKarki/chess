@@ -550,7 +550,6 @@ inline void forKing(int n, vector<Move>& moves){
 }
 
 inline int checkInsufMats(){
-  int Q = 0, B = 0, N = 0, R = 0, P = 0;
   int pieceAmt[5] = {};
   // count all
   int whiteColor = -1;  // bishops
@@ -583,7 +582,8 @@ inline int checkInsufMats(){
     if (totalB + totalN == 1) return 1;
     // king + bishops vs King + bishops, same-colored squares
     if (totalB == 2 && totalN == 0){
-      if (blackColor%2 == whiteColor%2) return 1;
+      if (blackColor != -1 && whiteColor != -1)
+        if (blackColor%2 == whiteColor%2) return 1;
     }
   }
   return 0;
@@ -612,9 +612,97 @@ inline int materialAdv(){
   return gs.turn == 0 ? score: -score; // if white's turn then sending from white's perspective
 }
 
+// PST - piece square tables - giving each piece bonus or penalty acc to their position
+// pawn
+constexpr int pawnPST[64] = {
+  0,  0,  0,  0,  0,  0,  0,  0,
+  50, 50, 50, 50, 50, 50, 50, 50,
+  10, 10, 20, 30, 30, 20, 10, 10,
+  5,  5, 10, 25, 25, 10,  5,  5,
+  0,  0,  0, 20, 20,  0,  0,  0,
+  5, -5,-10,  0,  0,-10, -5,  5,
+  5, 10, 10,-20,-20, 10, 10,  5,
+  0,  0,  0,  0,  0,  0,  0,  0
+};
+
+// knight
+constexpr int knightPST[64] = {
+  -50,-40,-30,-30,-30,-30,-40,-50,
+  -40,-20,  0,  0,  0,  0,-20,-40,
+  -30,  0, 10, 15, 15, 10,  0,-30,
+  -30,  5, 15, 20, 20, 15,  5,-30,
+  -30,  0, 15, 20, 20, 15,  0,-30,
+  -30,  5, 10, 15, 15, 10,  5,-30,
+  -40,-20,  0,  5,  5,  0,-20,-40,
+  -50,-40,-30,-30,-30,-30,-40,-50
+};
+
+// bishop
+constexpr int bishopPST[64] = {
+  -20,-10,-10,-10,-10,-10,-10,-20,
+  -10,  5,  0,  0,  0,  0,  5,-10,
+  -10, 10, 10, 10, 10, 10, 10,-10,
+  -10,  0, 10, 10, 10, 10,  0,-10,
+  -10,  5,  5, 10, 10,  5,  5,-10,
+  -10,  0,  5, 10, 10,  5,  0,-10,
+  -10,  0,  0,  0,  0,  0,  0,-10,
+  -20,-10,-10,-10,-10,-10,-10,-20
+};
+
+// rook
+constexpr int rookPST[64] = {
+    0,  0,  5, 10, 10,  5,  0,  0,
+  -5,  0,  0,  0,  0,  0,  0, -5,
+  -5,  0,  0,  0,  0,  0,  0, -5,
+  -5,  0,  0,  0,  0,  0,  0, -5,
+  -5,  0,  0,  0,  0,  0,  0, -5,
+  -5,  0,  0,  0,  0,  0,  0, -5,
+    5, 10, 10, 10, 10, 10, 10,  5,
+    0,  0,  0,  5,  5,  0,  0,  0
+};
+
+// queen
+constexpr int queenPST[64] = {
+  -20,-10,-10, -5, -5,-10,-10,-20,
+  -10,  0,  5,  0,  0,  0,  0,-10,
+  -10,  5,  5,  5,  5,  5,  0,-10,
+    0,  0,  5,  5,  5,  5,  0, -5,
+  -5,  0,  5,  5,  5,  5,  0, -5,
+  -10,  0,  5,  5,  5,  5,  0,-10,
+  -10,  0,  0,  0,  0,  0,  0,-10,
+  -20,-10,-10, -5, -5,-10,-10,-20
+};
+
+// king
+constexpr int kingPST[64] = {
+  20, 30, 10,  0,  0, 10, 30, 20,
+  20, 20,  0,  0,  0,  0, 20, 20,
+  -10,-20,-20,-20,-20,-20,-20,-10,
+  -20,-30,-30,-40,-40,-30,-30,-20,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30
+};
+
+inline int positionalBonus(){
+  int score = 0;
+  const int* PST[6] = {kingPST, queenPST, bishopPST, knightPST, rookPST, pawnPST}; // array of pointers
+  for (int clr = 0; clr <= 1; clr++){
+    for (int piece = 0; piece <= 5; piece++){
+      forEachBit(gs.bitBoards[clr][piece], [&](int pos){
+        int sq = clr == 0? pos: pos ^ 56; // pos xor 56 gives opposite sq on same file 
+        if (clr == 0) score += PST[piece][sq]; // with white's perspective
+        if (clr == 1) score -= PST[piece][sq];
+      });
+    } 
+  }
+  return score;
+}
+
 int evaluate(){
   int ttlScore = 0;
-  ttlScore += materialAdv();
+  ttlScore += materialAdv() + positionalBonus();
   return ttlScore;
 }
 
@@ -661,6 +749,7 @@ int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the de
     if (stand > alpha) alpha = stand;        
     bestScore = stand;
     if (depth <= 0) return bestScore;
+    if (checkInsufMats()) return 0;
   }
   else if (depth < -3) return evaluate();
   if (!inCheck) moves = filterNonAtckMove(moves); 
@@ -700,7 +789,7 @@ int negaMax(int alpha, int beta, int depth){
     if (isKingInCheck(gs.turn)) return -30000 + gs.depth - depth;
     return 0; // stalemate score
   }
-  
+
   if (checkInsufMats()) return 0; // insufficient materials
   if (depth == 0){ 
     if (gs.qDepth != 0)
