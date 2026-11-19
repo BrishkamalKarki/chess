@@ -9,9 +9,12 @@ export class Timer{
     this.room = rooms.get(id);
     this.gameTime = this.room.gameTime;
     this.timerOn = this.room.timerOn;
+     this.whiteInterval = null;
+    this.blackInterval = null;
   }
 
   startTimer(){
+    this.stopTimer();
     this.whiteMin = this.gameTime - 1;
     this.whiteSec = 59;
 
@@ -19,7 +22,7 @@ export class Timer{
     this.blackSec = 59;
 
     if (this.timerOn){
-      setInterval(()=>{
+       this.whiteInterval = setInterval(()=>{
         if (this.room.turn == 'white'){
           if (!this.gameState.timeOutWhite){
             this.whiteSec -= 1;
@@ -45,7 +48,7 @@ export class Timer{
     }
 
     if (this.timerOn){
-      setInterval(()=>{
+       this.blackInterval = setInterval(()=>{
         if (this.room.turn == 'black'){
           if (!this.gameState.timeOutBlack){
             this.blackSec -= 1;
@@ -75,5 +78,12 @@ export class Timer{
       'white': {min: this.whiteMin, sec: this.whiteSec},
       'black': {min: this.blackMin, sec: this.blackSec}
     }
+  }
+
+  stopTimer(){
+    if (this.whiteInterval) clearInterval(this.whiteInterval);
+    if (this.blackInterval) clearInterval(this.blackInterval);
+    this.whiteInterval = null;
+    this.blackInterval = null;
   }
 }
