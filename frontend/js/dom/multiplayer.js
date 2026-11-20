@@ -9,7 +9,6 @@ document.getElementById("createRoom")?.addEventListener('click', async ()=>{
     return;
   }
   if (Number.isNaN(Number(id))){
-    console.log(id);
     document.getElementById('roomIdMaker').value = "";
     roomIdMaker.placeholder = 'ONLY NUMBERS ALLOWED';
     return;
@@ -45,7 +44,6 @@ document.getElementById("joinRoom")?.addEventListener('click',async ()=>{
     return;
   }
   if (Number.isNaN(Number(id))){
-    console.log(id);
     document.getElementById('roomIdHolder').value = "";
     roomIdHolder.placeholder = 'ONLY NUMBERS ALLOWED';
     return;

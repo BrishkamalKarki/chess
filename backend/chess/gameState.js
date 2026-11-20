@@ -1,5 +1,3 @@
-import { registerRoomEvents } from "../socket/roomEvents.js";
-
   class GameState{
     constructor(id){
       this.id = id;

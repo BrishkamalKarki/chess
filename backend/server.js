@@ -49,6 +49,5 @@ registerSocketEvents(io);
 
 const port = process.env.PORT || 8000;
 httpServer.listen(port, '0.0.0.0', ()=>{
-  console.log(`Connected on port: ${port}`);
 }); 
 

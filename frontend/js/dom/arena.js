@@ -1,6 +1,5 @@
 import { gameVars } from "../chessBoard/board.js";
 
-const dynamicEl= document.querySelector('.dynamic');
 if (gameVars.playedAs == 'white'){
   document.querySelector('#dynamicYou').style.background = '#77b8b2';
   document.querySelector('#dynamicOpp').style.background = '#1e5754';
@@ -16,7 +15,6 @@ if (gameVars.gameMode == 'singlePlayer'){
   if (gameVars.timerOn == 'true'){
     setInterval(()=>{
       if (!gameVars.timeOutMine){
-        console.log(min, sec, gameVars.timeOutMine)
         sec -= 1;
         if (sec == 0){
           if (min == 0) gameVars.timeOutMine = true;

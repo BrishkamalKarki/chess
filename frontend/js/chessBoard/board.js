@@ -100,7 +100,6 @@ let blackMin;
 let blackSec;
 let whiteTimeOut = false, blackTimeOut = false, st = false, sT;
 socket.on('start time', (serverTime)=>{
-  // console.log(' the tiemr is started')
   whiteMin = serverTime.white.min;
   whiteSec = serverTime.white.sec;
   blackMin = serverTime.black.min;
@@ -317,7 +316,6 @@ class Square{
     ctx.lineTo(this.x, this.y + this.h);
     ctx.lineTo(this.x, this.y);
     ctx.stroke();
-    // console.log(clickedSrc, clickedDes, ` are src and destination `);
     if (clearBorder){ // when des is selected
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       board.draw();
@@ -383,7 +381,6 @@ canvas.addEventListener('pointerdown', async (event)=>{
       }
 
       if (playedAs == sq.pieceClr){
-        // console.log(' i got in here')
         if (gameMode == 'multiPlayer'){
           if (turn != playedAs) return;
         }
@@ -561,6 +558,8 @@ function updateBitAfterMove(src, des){
 let promoting = false; 
 function animate(timestamp){ // animating the piece move
   if (frame >= 10){
+    console.log('turn :', turn, ' source: ', clickedSrc, 'destination: ', clickedDes);
+
     const movingWhitePawn = isPiece(gameState.WHITE_PAWNS, clickedSrc);
     const movingBlackPawn = isPiece(gameState.BLACK_PAWNS, clickedSrc);
     const movedPawn = movingWhitePawn || movingBlackPawn;
@@ -580,7 +579,6 @@ function animate(timestamp){ // animating the piece move
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
     // reseting the variables
-    // console.log(" the tun is the turn of ", turn);
     disX = disY = mX = mY = srcX = srcY = desX = desY = null;
     frame = 0;
     // redrawing canvas
@@ -593,17 +591,13 @@ function animate(timestamp){ // animating the piece move
     }
     else{
       if (((getCp(gameState.WHITE_KING) >> BigInt(clickedDes)) & 1n) && Math.abs(clickedDes - clickedSrc) == 2 && turn == 'white' && !gameState.whiteCastled && !gameState.whiteKMoved){ 
-        // console.log('karna raj akri')
         gameState.justCastled = false;
         gameState.whiteCastled = true;
-        // console.log(clickedDes, ' is the clicked des ')
         if (clickedDes == 2 && !gameState.whiteQRookMoved){
-          // console.log('white queen side move')
           if (isPiece(gameState.WHITE_ROOKS, 0)) updateBitAfterMove(0, 3);
           gameState.whiteQRookMoved = true;
         }
         else if (!gameState.whiteKRookMoved && clickedDes == 6){
-          // console.log('white king side move')
           if (isPiece(gameState.WHITE_ROOKS, 7)) updateBitAfterMove(7, 5);
           gameState.whiteKRookMoved = true;
         }
@@ -616,12 +610,10 @@ function animate(timestamp){ // animating the piece move
         gameState.justCastled = false;
         gameState.blackCastled = true;
         if (clickedDes == 58 && !gameState.blackQRookMoved){
-          // console.log('black queen side move')
           if (isPiece(gameState.BLACK_ROOKS, 56)) updateBitAfterMove(56, 59);
           gameState.blackQRookMoved = true;
         }
         else if (!gameState.blackKRookMoved && clickedDes == 62){
-          // console.log('black king side move')
           if (isPiece(gameState.BLACK_ROOKS, 63)) updateBitAfterMove(63, 61);
           gameState.blackKRookMoved = true;
         }
@@ -714,7 +706,6 @@ function animate(timestamp){ // animating the piece move
       turn = turn == 'white' ? 'black' : 'white';
     if (!gameOver && gameMode != 'multiPlayer' && !promoting && recordThreefold(positionHistory, getPositionKey(gameState, turn)))
       endGameAsThreefold();
-    console.log(turn)
 
     // after making the move fully and flipping hte turn
     if (!gameOver && checkCheckMate(gameState, turn)){

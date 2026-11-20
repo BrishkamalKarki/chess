@@ -26,7 +26,6 @@ document.getElementById("play")?.addEventListener('click', async ()=>{
   sessionStorage.setItem('gameTime', `${gameTime}`);
   sessionStorage.setItem('timerOn', `${timerOn}`);
   sessionStorage.setItem('playedAs', `${playedAs}`);
-  console.log(gameMode)
   if (gameMode == 'multiPlayer'){
     const responce = await socket.timeout(5000).emitWithAck('save settings', roomCreateId || roomJoinId, userId, timerOn, playedAs, gameTime);
     if (responce.success){
@@ -35,9 +34,6 @@ document.getElementById("play")?.addEventListener('click', async ()=>{
       sessionStorage.setItem('userId', userId);
       sessionStorage.setItem('room', responce.room);
       navigateTo(pagesRoutes.arena);
-    }
-    else{
-      console.log(responce.message);
     }
   }
   else{

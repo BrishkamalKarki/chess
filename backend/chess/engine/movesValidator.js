@@ -20,7 +20,6 @@ function validateMoveAt(pos, gs, r, des){
   }
 
   const piece = whatIsAt(pos);
-  console.log(piece, pos, " is the piece clicked and the position where that piece is.")
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
     'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
@@ -40,11 +39,8 @@ function validateMoveAt(pos, gs, r, des){
     if (piece[1] == 'R') gameState.blackRookMoved = true; 
   }
 
-  console.log(kingChecked(room), ' is the king checked');
-  // console.log(willGetChecked(pos, piece, pieceToBitBoard, room, des))
   // if (willGetChecked(pos, piece, pieceToBitBoard, room, des)) return [];
   const psblPaths = pieceToFunc[piece](row, col, pos, piece[0]);
-  console.log(psblPaths, ' are possible Paths');
 
   // if (psblPaths.includes(des)){ // if the move is valid
   //   const ifChecked = kingChecked(room); // in each's turn before each move check if king is checked
@@ -61,7 +57,6 @@ function validateMoveAt(pos, gs, r, des){
   //     pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
   //     if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
   //     if (stillChecked){
-  //     console.log(' your king is checked')
   //       return [];
   //     }
   //   }
@@ -71,7 +66,6 @@ function validateMoveAt(pos, gs, r, des){
   //   const desPiece = whatIsAt(des);
   //   let bBorgEn;
   //   if (desPiece != ' ') bBorgEn = pieceToBitBoard[desPiece]; 
-  //   console.log( piece, desPiece);
   //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], pos, 0);
   //   pieceToBitBoard[piece] = replaceBit(pieceToBitBoard[piece], des, 1);
   //   if (desPiece != ' ')
@@ -80,7 +74,6 @@ function validateMoveAt(pos, gs, r, des){
   //   pieceToBitBoard[piece] = bBorg; // restoring after the temporary move
   //     if (desPiece != ' ') pieceToBitBoard[desPiece] = bBorgEn;
   //   if (checked){
-  //     console.log(' if you move u die')
   //     return [];
   //   }
   // }
@@ -180,7 +173,6 @@ function kingChecked(room){
       enemyAttacks.push(atck);
     }
   }
-  console.log(enemyAttacks, room.turn)
   for (const pos of enemyKing){
     let row = Math.floor(pos/8);
     let col = pos - row * 8;
@@ -557,7 +549,6 @@ function checkCastleUtils(turn, src, des = src){
   if (turn == 'white'){
     if (piece[1] == 'R' && !gameState.whiteQRookMoved && src == 0) gameState.whiteQRookMoved = true; 
     if (piece[1] == 'R' && !gameState.whiteKRookMoved && src == 7) gameState.whiteKRookMoved = true; 
-    console.log(piece[1], gameState.whiteKMoved)
     if (piece[1] == 'K' && !gameState.whiteKMoved) gameState.whiteKMoved = true;
   }
   if (turn == 'black'){

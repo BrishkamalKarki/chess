@@ -21,7 +21,6 @@ function validateMoveAt(pos, gs, t){
 
   const piece = whatIsAt(pos);
   gameState.clickedPiece = piece;
-  // console.log(piece, pos, " is the piece clicked and the position where that piece is.")
   const pieceToFunc = {
     'wR': forRooks, 'wN': forKnights, 'wB': forBishops,
     'wK': forKing, 'wQ': forQueen, 'wP': forPawn,
@@ -32,8 +31,6 @@ function validateMoveAt(pos, gs, t){
   const row = Math.floor(pos/8);
   const col = pos - row*8;
 
-  // console.log(kingChecked(turn), ' is the king checked');
-  // console.log(willGetChecked(pos, piece, pieceToBitBoard, turn, des))
   // if (willGetChecked(pos, piece, pieceToBitBoard, turn, des)) return [];
   const psblPaths = pieceToFunc[piece](row, col, pos, piece[0]);
 
@@ -174,7 +171,6 @@ function kingChecked(turn){
       enemyAttacks.push(atck);
     }
   }
-  // console.log(enemyAttacks, turn)
   for (const pos of enemyKing){
     let row = Math.floor(pos/8);
     let col = pos - row * 8;
@@ -303,7 +299,6 @@ function forPawn(row, col, pos, src){
     }
   }
   
-  // console.log(possibleSqs, ' is the possible move fo rpawn and in for Pawn twoSqpawn is ', gameState.twoSqPawn)
   if (rowNew >= 0 && rowNew <= 7){
     const tar = whatIsAt(posNew)[0];
     if (tar == ' ') possibleSqs.push(posNew);
@@ -493,7 +488,6 @@ function checkCastleUtils(turn, src, des = src){
   if (turn == 'white'){
     if (piece[1] == 'R' && !gameState.whiteQRookMoved && src == 0) gameState.whiteQRookMoved = true; 
     if (piece[1] == 'R' && !gameState.whiteKRookMoved && src == 7) gameState.whiteKRookMoved = true; 
-    // console.log(piece[1], gameState.whiteKMoved)
     if (piece[1] == 'K' && !gameState.whiteKMoved) gameState.whiteKMoved = true;
   }
   if (turn == 'black'){

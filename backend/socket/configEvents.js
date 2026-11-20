@@ -1,4 +1,4 @@
-import {rooms, roomService} from "../utils/rooms.js";
+import {rooms} from "../utils/rooms.js";
 import GameState from "../chess/gameState.js";
 import { Timer } from "../chess/timer.js";
 import { stateToRoom } from "../utils/games.js";
@@ -36,7 +36,6 @@ function registerSettingEvents(io, socket){
     room.player2joined = false;
     room.roomReady = true;
     room.gameOn = false;
-    console.log(rooms)
     socket.join(roomId);
     return callback({
       success: true,
@@ -77,7 +76,6 @@ function registerSettingEvents(io, socket){
       }
     }
 
-    console.log(rooms)
     socket.join(roomId);
     callback({
       success: true,
@@ -91,10 +89,9 @@ function registerSettingEvents(io, socket){
 
     if (room.timerOn && room.gameOn && timer && !timer.whiteInterval && !timer.blackInterval){
       timer.startTimer();
-      console.log(' the timer event is same')
       io.sockets.in(roomId).emit('start time', timer.getTime());
     }
   });
 };
 
-export {registerSettingEvents, gameState};
+export {registerSettingEvents};

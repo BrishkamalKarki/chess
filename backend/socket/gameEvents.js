@@ -1,7 +1,7 @@
 import { checkCastleUtils, checkCheckMate, checkStaleMate, isPromoted, validateMoveAt } from "../chess/engine/movesValidator.js";
 import { updateBitAfterMove } from "../chess/engine/updateState.js";
 import { stateToRoom } from "../utils/games.js";
-import {destroyRoom, rooms, roomService} from "../utils/rooms.js";
+import {destroyRoom, rooms} from "../utils/rooms.js";
 
 function getCp(org){return org};
 function isPiece(of, at){
@@ -42,7 +42,6 @@ function endThreefold(io, roomId){
 
 export function registerGameEvents(io, socket){
   socket.on('apply move', (roomId, userId, src, des, callback)=>{
-    console.log('emit emmited apply move from ', roomId, userId, src, des); 
     const room = rooms.get(roomId);
     const roomState = stateToRoom[`${roomId}`];
     if (!room || !roomState || !roomState.gameState){
@@ -76,7 +75,6 @@ export function registerGameEvents(io, socket){
       updateBitAfterMove(src, des, stateToRoom[`${roomId}`].gameState);
       const promotionPending = isPromoted(src, des, gs);
       
-      console.log('apply move immited from the  server');
       io.sockets.in(roomId).emit('apply move', src, des);
       callback(
         {
@@ -84,7 +82,6 @@ export function registerGameEvents(io, socket){
         }
       )
       if (((getCp(stateToRoom[`${roomId}`].gameState.WHITE_KING) >> BigInt(des)) & 1n) && Math.abs(des - src) == 2 && rooms.get(roomId).turn == 'white' && !stateToRoom[`${roomId}`].gameState.whiteCastled && !stateToRoom[`${roomId}`].gameState.whiteKMoved){ 
-        console.log('karna raj kakri')
         stateToRoom[`${roomId}`].gameState.justCastled = false;
         stateToRoom[`${roomId}`].gameState.whiteCastled = true;
         if (des == 2 && !stateToRoom[`${roomId}`].gameState.whiteQRookMoved){
@@ -115,7 +112,6 @@ export function registerGameEvents(io, socket){
       checkCastleUtils(rooms.get(roomId).turn, src, des);
       
       rooms.get(roomId).turn = rooms.get(roomId).turn == 'white' ? 'black' : 'white';
-      console.log('now the turn is ', rooms.get(roomId).turn)
 
       const capturedColor = movingWhitePawn ? 'black' : movingBlackPawn ? 'white' : '';
       if (!promotionPending && recordThreefold(gs, rooms.get(roomId).turn, isEnPassant ? capturedColor : '', isEnPassant ? enPawn : -1)){
@@ -131,7 +127,6 @@ export function registerGameEvents(io, socket){
       }
      
       const isCheckMate = checkCheckMate(roomState.gameState, room);
-      console.log('  this is the check mate  ,  ', isCheckMate); 
       if (isCheckMate){
         const turn = room.turn;
         io.sockets.in(roomId).emit('checkmate', turn);
@@ -235,11 +230,9 @@ export function registerGameEvents(io, socket){
     if (!room || !room.gameOn || !roomState || !roomState.gameState) return;
     if (color == 'white'){
       stateToRoom[`${roomId}`].gameState.WHITE_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.WHITE_PAWNS), enPawnDes, 0);
-      console.log(' white en passant')
     }
     else if (color == 'black'){
       stateToRoom[`${roomId}`].gameState.BLACK_PAWNS = replaceBit(getCp(stateToRoom[`${roomId}`].gameState.BLACK_PAWNS), enPawnDes, 0);
-      console.log(' black en passant')
     }
     stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS = stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS | stateToRoom[`${roomId}`].gameState.BLACK_KING | stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS | stateToRoom[`${roomId}`].gameState.BLACK_PAWNS | stateToRoom[`${roomId}`].gameState.BLACK_QUEEN | stateToRoom[`${roomId}`].gameState.BLACK_ROOKS;
     stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS = stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS | stateToRoom[`${roomId}`].gameState.WHITE_KING | stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS | stateToRoom[`${roomId}`].gameState.WHITE_PAWNS | stateToRoom[`${roomId}`].gameState.WHITE_QUEEN | stateToRoom[`${roomId}`].gameState.WHITE_ROOKS;

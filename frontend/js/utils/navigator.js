@@ -16,10 +16,8 @@ export default function navigateTo(path){
   }
   catch(err){
     if (err.code === 'ENOENT'){
-      console.log(path, " DNE ");
       return;
     }
-    console.log("Error: ", err.message);
     return;
   }
 };

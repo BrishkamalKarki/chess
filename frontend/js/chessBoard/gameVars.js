@@ -36,10 +36,6 @@ export async function getGameVars(){
       playedAs = responce.playedAs;
       turn  = responce.turn,
       id = responce.id
-      console.log(responce.message);
-    }
-    else{
-      console.log(responce.message);
     }
   };
 

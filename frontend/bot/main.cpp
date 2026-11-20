@@ -953,9 +953,9 @@ inline int kingSafetyScore(){
 
 int evaluate(){
   int ttlScore = 0;
-  // ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
+  ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
   // ttlScore += materialAdv() + positionalBonus();
-  ttlScore += materialAdv() + positionalBonus() + bishopPairBonus() + kingSafetyScore();
+  // ttlScore += materialAdv() + positionalBonus() + kingSafetyScore();
   return ttlScore;
 }
 
