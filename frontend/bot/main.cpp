@@ -56,6 +56,7 @@ struct hashTable{
 gameState gs;
 hashTable hT[ttSize];
 int bestMove;
+int bestMoveThisIteration = 0;
 constexpr int WK = 1; // white side king castle
 constexpr int WQ = 2; // white side queen castle
 constexpr int BK = 4;
@@ -685,6 +686,18 @@ constexpr int kingPST[64] = {
   -30,-40,-40,-50,-50,-40,-40,-30
 };
 
+// king endgame
+constexpr int kingEndgamePST[64] = {
+  -50,-40,-30,-20,-20,-30,-40,-50,
+  -40,-20,-10,  0,  0,-10,-20,-40,
+  -30,-10, 20, 30, 30, 20,-10,-30,
+  -20,  0, 30, 40, 40, 30,  0,-20,
+  -20,  0, 30, 40, 40, 30,  0,-20,
+  -30,-10, 20, 30, 30, 20,-10,-30,
+  -40,-20,-10,  0,  0,-10,-20,-40,
+  -50,-40,-30,-20,-20,-30,-40,-50
+};
+
 constexpr int PHASE_MAX = 24;
 constexpr int PHASE_WEIGHT[6] = {0, 4, 1, 1, 2, 0}; // K Q B N R P only Q R B N count defines the game phase
 inline int gamePhase(){ // predicting the game phase opening / transition/midgame / endgame
@@ -712,7 +725,7 @@ inline int positionalBonus(){
         int sq = clr == 0? pos: pos ^ 56; // pos xor 56 gives opposite sq on same file 
         int value;
         if (piece == 0){
-          value = getValueForPhase(kingPST[sq], kingEndgamePST[sq], phase);
+          value = getValueForPhase(kingPST[sq], kingEndgamePST[sq], gamePhase());
         }
         else{
           value = PST[piece][sq]; 
@@ -942,12 +955,9 @@ inline int kingSafetyScore(){
 int evaluate(){
   int ttlScore = 0;
   // ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
-  ttlScore += materialAdv() + kingSafetyScore() + positionalBonus();
-
+  ttlScore += materialAdv() + kingSafetyScore() + positionalBonus() + pawnStructScore();
   return ttlScore;
 }
-
-int nodes = 0;
 
 int moveOrderEvaluator(const Move& move){
   int score = 0;
@@ -973,10 +983,28 @@ vector<Move> filterNonAtckMove(vector<Move>& moves){
 }
 
 int iterationDepth = 0;
+uint64_t searchNodes = 0;
+bool searchStopped = false;
+std::chrono::steady_clock::time_point searchDeadline;
+constexpr uint64_t TIME_CHECK_MASK = 1023ULL; //  111 1111 1111
+// 1024 = 1000 0000 0000
+inline bool checkTime(){
+  if (searchStopped) return true;
+  if ((searchNodes & TIME_CHECK_MASK) != 0) // check clock after each 1023 nodes searched it is only 0 when seachNode is a multiple of 1024
+    return false;
+  if (std::chrono::steady_clock::now() >= searchDeadline){
+    searchStopped = true;
+    return true;
+  }
+
+  return false;
+}
+
 int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the depth until there is normal move
+  searchNodes++;
+  if (checkTime()) return 0;
   bool inCheck = isKingInCheck(gs.turn);
   int bestScore = -numeric_limits<int>::max();
-  
   
   vector<Move> moves = moveGenerator();
   if (moves.empty()){
@@ -985,7 +1013,7 @@ int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the de
   }
   
   if (!inCheck){ // stand-pat evalutaion not allowed in check
-    int stand = evaluate(); // stand pat - 
+    int stand = evaluate(); // stand pat 
     if (stand >= beta) return stand; // the opponent will never allow this position
     if (stand > alpha) alpha = stand;        
     bestScore = stand;
@@ -1003,8 +1031,8 @@ int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the de
   for (auto& move: moves){
     makeMove(move);
     int score = -quiescenceSearch(-beta, -alpha, depth - 1); // current depth 1
-    nodes++;
     unMakeMove(move);
+    if (searchStopped) return 0; // if time limit then alaways return 0 no check use prev root best move
     if (score > bestScore){
       bestScore = score;
     }
@@ -1016,12 +1044,13 @@ int quiescenceSearch(int alpha, int beta, int depth){ // searching beyond the de
 
 int storedScore = 0;
 int negaMax(int alpha, int beta, int depth){
+  searchNodes++;
+  if (checkTime()) return 0;
   int originalAlpha = alpha;
   int flag = -1;
   uint64_t hash = generateHash();
-  // if (hT[hash%ttSize].hashKey == hash)
-  //   return hT[hash%ttSize].value;
-  if ((storedScore = getScore(depth, alpha, beta, hash)) != valUNKNOWN) 
+  bool isRoot = (depth == iterationDepth);
+  if (!isRoot && (storedScore = getScore(depth, alpha, beta, hash)) != valUNKNOWN)
     return storedScore;
 
   vector<Move> moves = moveGenerator();
@@ -1046,13 +1075,13 @@ int negaMax(int alpha, int beta, int depth){
     makeMove(move);
     int score = -negaMax(-beta, -alpha, depth - 1);
 
-    nodes++;
     unMakeMove(move);
+    if (searchStopped) return 0;
     if (score > bestScore){
       bestScore = score;
-      if (depth == iterationDepth){
-        bestMove = move.from * 100 + move.to;
-        bestMove = bestMove * 10 + move.promotion;
+      if (isRoot){
+        bestMoveThisIteration = move.from * 100 + move.to;
+        bestMoveThisIteration = bestMoveThisIteration * 10 + move.promotion;
       }
     }
     alpha = max(alpha, score);
@@ -1060,6 +1089,7 @@ int negaMax(int alpha, int beta, int depth){
       break; // pruned
     } 
   }
+  if (searchStopped) return 0;
   if (bestScore <= originalAlpha)
     flag = hashAlpha; 
   else if (bestScore >= beta)
@@ -1084,21 +1114,38 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     gs.depth = depth;
     gs.epSquare = epSquare;
     gs.castlingRights = castlingRights;
-    gs.qDepth = 2;
-    auto timeMax = chrono::milliseconds(10000);; // 10 seconds 
-    bestMove = 0;
-    nodes = 0;
-    int alpaBeta = numeric_limits<int>::max();
-    // iterative deepning
-    auto start = std::chrono::steady_clock::now();
-    for (int dpth = 1; dpth <= gs.depth; dpth++){
-      iterationDepth = dpth;
-      int score = negaMax(-alpaBeta, alpaBeta ,dpth); // alpha(my best) beta(opp best) depth
-      auto end = std::chrono::steady_clock::now();
-      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
-      if (elapsed >= timeMax) break;
+
+    int botTime;
+    if (depth == 1){
+      botTime = 1000; // ms
+      gs.qDepth = 1;
+    }
+    else if (depth == 3){
+      botTime = 2000; // ms
+      gs.qDepth = 2;
+    }
+    else{
+      botTime = 4000; // ms
+      gs.qDepth = 3;
     }
 
-    printf("The best move is and node is: %d %d %d\n", bestMove/100, bestMove%100, nodes);
-  return bestMove;
+    auto start = std::chrono::steady_clock::now();
+    searchDeadline = start + std::chrono::milliseconds(botTime);
+    searchStopped = false;
+    searchNodes = 0;
+    bestMove = 0;
+    bestMoveThisIteration = 0;
+    int alpaBeta = numeric_limits<int>::max();
+    // iterative deepning
+    for (int dpth = 1; dpth <= gs.depth; dpth++){
+      bestMoveThisIteration = 0;
+      iterationDepth = dpth;
+      int score = negaMax(-alpaBeta, alpaBeta ,dpth); // alpha(my best) beta(opp best) depth
+      if (searchStopped) break;
+      if (bestMoveThisIteration != 0)
+        bestMove = bestMoveThisIteration;
+      if (std::chrono::steady_clock::now() >= searchDeadline) break;
+    }
+
+    return bestMove;
 }

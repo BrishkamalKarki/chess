@@ -15,7 +15,6 @@ const ctx = canvas.getContext('2d');
 const pxCanvas = Math.floor((canvas.clientWidth * (window.devicePixelRatio || 1) / 8)) * 8;
 canvas.height = pxCanvas;
 canvas.width = pxCanvas;
-
 let mouseClicked = false;
 let mouseCoord = []; // keeping track of mouse coord
 let clickedSrc = null;
@@ -24,6 +23,17 @@ let animationOn = false;
 const gameVars = await getGameVars();
 const {gameMode, playedAs, timerOn, botDiff, gameTime, roomCreateId, roomJoinId, userId, timeOutOpp, timeOutMine, id} = gameVars;
 let turn = 'white';
+
+let depth; 
+if (botDiff === "lowDiff"){
+  depth = 2;
+}
+else if (botDiff === "midDiff"){
+  depth = 3;
+}
+else{
+  depth = 5;
+}
 
 let botWorker; // seperate thread for bot
 let requestId = 1;
@@ -310,7 +320,6 @@ class Square{
 
 let botPromote = 0;
 async function makeBotMove(){
-  let depth = 8;
   const bitBoards = [gameState.WHITE_KING, gameState.WHITE_KNIGHTS, gameState.WHITE_QUEEN, gameState.WHITE_ROOKS, gameState.WHITE_BISHOPS, gameState.WHITE_PAWNS,
     gameState.BLACK_KING, gameState.BLACK_KNIGHTS, gameState.BLACK_QUEEN, gameState.BLACK_ROOKS, gameState.BLACK_BISHOPS, gameState.BLACK_PAWNS];
   const epSquare = gameState.twoSqPawn.length ? gameState.twoSqPawn[0] : -1;

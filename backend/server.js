@@ -3,21 +3,19 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import {Server} from 'socket.io';
-
 import {registerSocketEvents} from  './socket/socket.js';
-
 import getMimeType from './utils/getMimeType.js';
+dotenv.config();
 
 const frontendDir = "frontend"; // either path from root or relative to where node started
 const baseUrl = process.env.BASE_URL;
 
-dotenv.config();
 
 // https for serving content
 const httpServer = http.createServer(async (req, res)=>{
   try{
     const reqUrl = req.url;
-    const fullUrl = new URL(reqUrl, 'http://localhost');
+    const fullUrl = new URL(reqUrl, baseUrl);
     const pathname = decodeURIComponent(fullUrl.pathname); // decodeURIComponent decodes spaces and symbols used in paths
   
     const reqPath = path.join(frontendDir, pathname === '/' ? '/index.html': pathname);
@@ -50,7 +48,8 @@ const io = new Server(httpServer);
 
 registerSocketEvents(io);
 
-httpServer.listen(8000, '0.0.0.0', ()=>{
-  console.log('Connected on port: 8000');
+const port = process.env.PORT || 8000;
+httpServer.listen(port, '0.0.0.0', ()=>{
+  console.log(`Connected on port: ${port}`);
 }); 
 

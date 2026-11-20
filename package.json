@@ -4,20 +4,21 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node backend/server.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BrishkamalKarki/Chess.git"
+    "url": "git+https://github.com/BrishkamalKarki/chess.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/BrishkamalKarki/Chess/issues"
+    "url": "https://github.com/BrishkamalKarki/chess/issues"
   },
-  "homepage": "https://github.com/BrishkamalKarki/Chess#readme",
+  "homepage": "https://github.com/BrishkamalKarki/chess#readme",
   "dependencies": {
     "dotenv": "^16.4.7",
     "socket.io": "^4.8.4",
@@ -25,5 +26,8 @@
   },
   "devDependencies": {
     "prettier": "^3.10.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
