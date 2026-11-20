@@ -685,6 +685,24 @@ constexpr int kingPST[64] = {
   -30,-40,-40,-50,-50,-40,-40,-30
 };
 
+constexpr int PHASE_MAX = 24;
+constexpr int PHASE_WEIGHT[6] = {0, 4, 1, 1, 2, 0}; // K Q B N R P only Q R B N count defines the game phase
+inline int gamePhase(){ // predicting the game phase opening / transition/midgame / endgame
+  int phase = 0;
+  for (int clr = 0; clr < 2; clr++){
+    for (int piece = 1; piece <= 4; piece++){
+      phase += std::popcount(gs.bitBoards[clr][piece]) * PHASE_WEIGHT[piece];
+    }
+  }
+
+  return std::min(phase, PHASE_MAX);  // from promotion phase can be greater than max
+}
+
+// standard formula
+inline int getValueForPhase(int mg, int eg, int phase){ // midgame King PST and endgame King PST
+  return (mg * phase + eg * (PHASE_MAX - phase)) / PHASE_MAX; // returns the PST for King accordin to phase
+} // for opening midgame PST is applied
+
 inline int positionalBonus(){ 
   int score = 0;
   const int* PST[6] = {kingPST, queenPST, bishopPST, knightPST, rookPST, pawnPST}; // array of pointers
@@ -692,8 +710,15 @@ inline int positionalBonus(){
     for (int piece = 0; piece <= 5; piece++){
       forEachBit(gs.bitBoards[clr][piece], [&](int pos){
         int sq = clr == 0? pos: pos ^ 56; // pos xor 56 gives opposite sq on same file 
-        if (clr == 0) score += PST[piece][sq]; // with white's perspective
-        if (clr == 1) score -= PST[piece][sq];
+        int value;
+        if (piece == 0){
+          value = getValueForPhase(kingPST[sq], kingEndgamePST[sq], phase);
+        }
+        else{
+          value = PST[piece][sq]; 
+        }
+        if (clr == 0) score += value; // with white's perspective
+        if (clr == 1) score -= value;
       });
     } 
   }
@@ -708,7 +733,7 @@ inline int pawnPeriPheralChecker(int turn, int srcPos, int top, int down, int lf
     int row = pos/8;
     int col = pos%8;
     if (top || down)
-      if ((srcCol == col)) num++;
+      if (srcCol == col) num++;
     if (tr || tl) 
       if ((turn == 0? (scrRow-row)==1: (scrRow-row)==-1) && (abs(srcCol-col)==1)) num++;
     if (dr || dl)
@@ -842,95 +867,83 @@ inline int mobilityBonus(){
 constexpr int KING_PAWN_SHIELD_BONUS = 20;
 constexpr int KING_OTHER_PIECE_SHIELD_BONUS = 5;
 constexpr int KING_ATTACKED_SQUARE_PENALTY = 10;
-constexpr int KING_OPEN_FILE_PENALTY = 15;
 constexpr int KING_CENTER_EXPOSURE_PENALTY = 15;
+constexpr int KING_ATTACK_ZONE_RADIUS = 2;
 inline int kingSafetyScore(){
-  int score = 0;
-  int wP = -1;
-  int bP = -1;
-  forEachBit(gs.bitBoards[0][0], [&](int pos){
-    wP = pos;
-  }); 
-  forEachBit(gs.bitBoards[1][0], [&](int pos){
-    bP = pos;
-  }); 
-  // 1 box around the king 
-  // P P P 
-  // P K P 
-  // P P P 
-  int wKC = wP%8; int wKR = wP/8;
-  int bKC = bP%8; int bKR = bP/8;
-  int aroundWKSqs[] = {wP+7, wP+8, wP+9, wP-1, wP+1, wP-7, wP-8, wP-9}; // arround the white king
-  int aroundBKSqs[] = {bP-7, bP-8, bP-9, bP-1, bP+1, bP+7, bP+8, bP+9}; // arround the black king
-  int pawnAhead = 0;
-  int otherPieceAhead = 0;
-  for (int i = 0; i <= 2; i++){
-    if (!(abs(wKC - aroundWKSqs[i]%8) <= 1)) continue;
-    int aHP = whatIsAt(aroundWKSqs[i]); // piece ahead
-    if (aHP == 6) pawnAhead++;
-    else if (aHP == 1 || aHP == 2 || aHP == 3 || aHP == 4 || aHP == 5) otherPieceAhead++;
-  }
-  score += pawnAhead * KING_PAWN_SHIELD_BONUS + otherPieceAhead * KING_OTHER_PIECE_SHIELD_BONUS;
-  if ((wKR == 2 || wKR == 3 || wKR == 4 || wKR == 5) && (wKC == 2 || wKC == 3 || wKC == 4 || wKC == 5)) score -= KING_CENTER_EXPOSURE_PENALTY;
-  pawnAhead = 0;
-  otherPieceAhead = 0;
-  for (int i = 0; i <= 2; i++){
-    if (!(abs(bKC - aroundbKSqs[i]%8) <= 1)) continue;
-    int aHP = whatIsAt(aroundBKSqs[i]); // piece ahead
-    if (aHP == 16) pawnAhead++;
-    else if (aHP == 11 || aHP == 12 || aHP == 13 || aHP == 14 || aHP == 15) otherPieceAhead++;
-  }
-  score -= pawnAhead * KING_PAWN_SHIELD_BONUS + otherPieceAhead * KING_OTHER_PIECE_SHIELD_BONUS;
-  if ((bKR == 2 || bKR == 3 || bKR == 4 || bKR == 5) && (bKC == 2 || bKC == 3 || bKC == 4 || bKC == 5)) score += KING_CENTER_EXPOSURE_PENALTY;
-  
-  int enmPawn = 0;
-  int frndPawn = 0;
-  for (int clr = 0; clr <= 1; clr++){
-    forEachBit(gs.bitBoards[clr][0], [&](int pos){
-      int file = pos%8;
-      for (int f = 0; f <= 7; f++){
-        int piece = whatIsAt(file+f*8);
-        if ((piece == 6 || piece == 16) && clr == (piece/10)) frndPawn++;
-        else if ((piece == 6 || piece == 16) && clr != (piece/10)) enmPawn++;
-      }
-      if ((clr == 0 && frndPawn == 0) && enmPawn == 0) score -= KING_OPEN_FILE_PENALTY;
-      if ((clr == 1 && frndPawn == 0) && enmPawn == 0) score += KING_OPEN_FILE_PENALTY;
-      enmPawn = 0;
-      frndPawn = 0;
-    });
-  }
+  const uint64_t wKing = gs.bitBoards[0][0];
+  const uint64_t bKing = gs.bitBoards[1][0];
+  if (wKing == 0 || bKing == 0) return 0;
+  const int wP = std::countr_zero(wKing);
+  const int bP = std::countr_zero(bKing);
+  const int wKC = wP % 8;
+  const int wKR = wP / 8;
+  const int bKC = bP % 8;
+  const int bKR = bP / 8;
 
-  int attack = 0;
-  int orgTurn = gs.turn;
-  vector<Move> moves = moveGenerator();
-  int steps[] = {+7, +8, +9, -1, +1, -7, -8, -9, +7+8, +8+8, +9+8, -1-1, +1+1, -7+8, -8+8, -9+8};
-  for (int i = 0; i <= 1; i++){
-    for (int j = 0; j <= 15; j++){
-      int pos = wP+steps[j];
-      if (pos > 63 || pos < 0) continue;
-      if (i == 0){
-        if (abs(wKR-(int)pos/8) > 2 || abs(wKC-(int)pos%8) > 2) continue;
-        attack++;
+  int score = 0;
+  // pawn/piece shield directly in front of the king
+  auto shieldScore = [](int kingRow, int kingCol, int forward, bool white){
+    int pawns = 0;
+    int pieces = 0;
+    const int pawnCode = white ? 6 : 16;
+    const int minPiece = white ? 1 : 11;
+    const int maxPiece = white ? 5 : 15;
+    for (int i = -1; i <= 1; i++){
+      int row = kingRow + forward;
+      int col = kingCol + i;
+      if (row < 0 || row > 7 || col < 0 || col > 7) continue;
+      int piece = whatIsAt(row * 8 + col);
+      if (piece == pawnCode)
+        pawns++;
+      else if (piece >= minPiece && piece <= maxPiece)
+        pieces++;
+    }
+
+    return pawns * KING_PAWN_SHIELD_BONUS + pieces * KING_OTHER_PIECE_SHIELD_BONUS;
+  };
+
+  score += shieldScore(wKR, wKC, 1, true);
+  score -= shieldScore(bKR, bKC, -1, false);
+
+  // central king exposure.
+  auto inCenter = [](int row, int col){ 
+    return row >= 2 && row <= 5 && col >= 2 && col <= 5;
+  };
+
+  if (inCenter(wKR, wKC)) score -= KING_CENTER_EXPOSURE_PENALTY;
+  if (inCenter(bKR, bKC)) score += KING_CENTER_EXPOSURE_PENALTY;
+
+  // number of attacked squares in the zone around each king
+  auto attackedZone = [](int kingPos, int attackerColor){
+    int attacked = 0;
+    int kingRow = kingPos >> 3;
+    int kingCol = kingPos & 7;
+
+    for (int rw = -KING_ATTACK_ZONE_RADIUS; rw <= KING_ATTACK_ZONE_RADIUS; rw++){
+      for (int cl = -KING_ATTACK_ZONE_RADIUS; cl <= KING_ATTACK_ZONE_RADIUS; cl++){
+        if (rw == 0 && cl == 0) continue;
+        int row = kingRow + rw;
+        int col = kingCol + cl;
+        if (row < 0 || row > 7 || col < 0 || col > 7) continue;
+
+        if (isSquareAttacked(row * 8 + col, attackerColor))
+          attacked++;
       }
-      else{
-        if (abs(bKR-(int)pos/8) > 2 || abs(bKC-(int)pos%8) > 2) continue;
-        attack++;
-      }
     }
-    if (i == 0){
-      score -= attack * KING_ATTACKED_SQUARE_PENALTY;
-    }
-    else{
-      score += attack * KING_ATTACKED_SQUARE_PENALTY;
-    }
-    attack = 0;
-  }
-  return gs.turn == 0 ? score: -score;
+    return attacked;
+  };
+
+  score -= attackedZone(wP, 1) * KING_ATTACKED_SQUARE_PENALTY;
+  score += attackedZone(bP, 0) * KING_ATTACKED_SQUARE_PENALTY;
+
+  return gs.turn == 0 ? score : -score;
 }
 
 int evaluate(){
   int ttlScore = 0;
-  ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
+  // ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
+  ttlScore += materialAdv() + kingSafetyScore() + positionalBonus();
+
   return ttlScore;
 }
 
