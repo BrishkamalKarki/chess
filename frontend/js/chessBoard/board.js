@@ -26,13 +26,13 @@ let turn = 'white';
 
 let depth; 
 if (botDiff === "lowDiff"){
-  depth = 2;
-}
-else if (botDiff === "midDiff"){
   depth = 3;
 }
+else if (botDiff === "midDiff"){
+  depth = 4;
+}
 else{
-  depth = 5;
+  depth = 6
 }
 
 let botWorker; // seperate thread for bot
@@ -65,6 +65,32 @@ function requestBotSearch(bitBoards, color, depth, epSquare, castlingRights){
       castlingRights
     })
   })
+}
+
+const positionHistory = [];
+
+function getCastlingRights(gs){
+  return (!gs.whiteKMoved && !gs.whiteKRookMoved ? 1 : 0) | (!gs.whiteKMoved && !gs.whiteQRookMoved ? 2 : 0) |
+    (!gs.blackKMoved && !gs.blackKRookMoved ? 4 : 0) | (!gs.blackKMoved && !gs.blackQRookMoved ? 8 : 0);
+}
+
+function getPositionKey(gs, side){
+  const ep = gs.twoSqPawn.length ? gs.twoSqPawn[0] : -1;
+  return `${gs.WHITE_KING}|${gs.WHITE_QUEEN}|${gs.WHITE_BISHOPS}|${gs.WHITE_KNIGHTS}|${gs.WHITE_ROOKS}|${gs.WHITE_PAWNS}|` +
+    `${gs.BLACK_KING}|${gs.BLACK_QUEEN}|${gs.BLACK_BISHOPS}|${gs.BLACK_KNIGHTS}|${gs.BLACK_ROOKS}|${gs.BLACK_PAWNS}|` +
+    `${side}|${getCastlingRights(gs)}|${ep}`;
+}
+
+function recordThreefold(history, key){
+  history.push(key);
+  return history.reduce((count, item)=> count + (item === key ? 1 : 0), 0) >= 3;
+}
+
+function endGameAsThreefold(){
+  sessionStorage.setItem('turn', 'Nobody');
+  sessionStorage.setItem('by', 'ThreeFold Repetetion');
+  navigateTo(pagesRoutes.winner);
+  gameOver = true;
 }
 
 let gameOver = false;
@@ -550,21 +576,6 @@ function animate(timestamp){ // animating the piece move
 
     // updating the bitboards
     updateBitAfterMove(clickedSrc, clickedDes);
-    if (gameMode != 'multiPlayer'){
-      if (gameState.moves.length >= 6) {gameState.moves.pop(); gameState.moves.pop();};
-      gameState.moves.push([clickedSrc, clickedDes]);
-      if (gameState.moves.length == 6){
-        const m = gameState.moves;
-        if (m[0][0] == m[2][1] == m[4][0] && m[0][1] == m[2][0] == m[4][1]){
-          if (m[1][0] == m[3][1] == m[5][0] && m[1][1] == m[3][0] == m[5][1]){
-            sessionStorage.setItem('turn', 'Nobody');
-            sessionStorage.setItem('by', 'ThreeFold Repetetion');
-            navigateTo(pagesRoutes.winner);   
-            gameOver = true;
-          }
-        }
-      }
-    }
     // console.log('king moved from ', clickedSrc, ' ', clickedDes)
     chessPieces.updateSquaresInfo();
     chessPieces.updatePieceToBB();
@@ -701,6 +712,8 @@ function animate(timestamp){ // animating the piece move
 
     if (!promoting)
       turn = turn == 'white' ? 'black' : 'white';
+    if (!gameOver && gameMode != 'multiPlayer' && !promoting && recordThreefold(positionHistory, getPositionKey(gameState, turn)))
+      endGameAsThreefold();
     console.log(turn)
 
     // after making the move fully and flipping hte turn
@@ -1109,6 +1122,8 @@ function promoteFunc(){
           socket.emit('insuffMats', id);
         }
       }
+      if (!gameOver && gameMode != 'multiPlayer' && recordThreefold(positionHistory, getPositionKey(gameState, turn)))
+        endGameAsThreefold();
 
         // after making the move fully and flipping hte turn
       if (!gameOver && checkCheckMate(gameState, turn)){
@@ -1147,6 +1162,7 @@ function promoteFunc(){
 
 const pieceImg = await getChessPieces();
 const gameState = new GameState();
+positionHistory.push(getPositionKey(gameState, turn));
 const board = new ChessBoard();
 board.getMesurements();
 board.draw();

@@ -8,8 +8,7 @@ import getMimeType from './utils/getMimeType.js';
 dotenv.config();
 
 const frontendDir = "frontend"; // either path from root or relative to where node started
-const baseUrl = process.env.BASE_URL;
-
+const baseUrl = process.env.BASE_URL || 'http://localhost';
 
 // https for serving content
 const httpServer = http.createServer(async (req, res)=>{

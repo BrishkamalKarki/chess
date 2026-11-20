@@ -1,4 +1,3 @@
-import Module from './bot.js';
 import createBot from './bot.js';
 
 const bot = await createBot({

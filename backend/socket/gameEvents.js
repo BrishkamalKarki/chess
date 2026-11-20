@@ -15,6 +15,31 @@ function replaceBit(of, at, by){
     return ((of & ~(BigInt(1) << BigInt(at))));
 }
 
+function getCastlingRights(gs){
+  return (!gs.whiteKMoved && !gs.whiteKRookMoved ? 1 : 0) | (!gs.whiteKMoved && !gs.whiteQRookMoved ? 2 : 0) |
+    (!gs.blackKMoved && !gs.blackKRookMoved ? 4 : 0) | (!gs.blackKMoved && !gs.blackQRookMoved ? 8 : 0);
+}
+
+function getPositionKey(gs, side, capturedColor = '', capturedSquare = -1){
+  const ep = gs.twoSqPawn.length ? gs.twoSqPawn[0] : -1;
+  const whitePawns = capturedColor === 'white' ? gs.WHITE_PAWNS & ~(1n << BigInt(capturedSquare)) : gs.WHITE_PAWNS;
+  const blackPawns = capturedColor === 'black' ? gs.BLACK_PAWNS & ~(1n << BigInt(capturedSquare)) : gs.BLACK_PAWNS;
+  return `${gs.WHITE_KING}|${gs.WHITE_QUEEN}|${gs.WHITE_BISHOPS}|${gs.WHITE_KNIGHTS}|${gs.WHITE_ROOKS}|${whitePawns}|` +
+    `${gs.BLACK_KING}|${gs.BLACK_QUEEN}|${gs.BLACK_BISHOPS}|${gs.BLACK_KNIGHTS}|${gs.BLACK_ROOKS}|${blackPawns}|` +
+    `${side}|${getCastlingRights(gs)}|${ep}`;
+}
+
+function recordThreefold(gs, side, capturedColor = '', capturedSquare = -1){
+  const key = getPositionKey(gs, side, capturedColor, capturedSquare);
+  gs.positionHistory.push(key);
+  return gs.positionHistory.reduce((count, item)=> count + (item === key ? 1 : 0), 0) >= 3;
+}
+
+function endThreefold(io, roomId){
+  io.sockets.in(roomId).emit('threefold repetition');
+  destroyRoom(io, roomId);
+}
+
 export function registerGameEvents(io, socket){
   socket.on('apply move', (roomId, userId, src, des, callback)=>{
     console.log('emit emmited apply move from ', roomId, userId, src, des); 
@@ -34,6 +59,7 @@ export function registerGameEvents(io, socket){
     
     if (validMoves.includes(des)){
       const gs = stateToRoom[`${roomId}`].gameState;
+      if (!gs.positionHistory) gs.positionHistory = [getPositionKey(gs, room.turn)];
       const movingWhitePawn = isPiece(gs.WHITE_PAWNS, src) == 1n;
       const movingBlackPawn = isPiece(gs.BLACK_PAWNS, src) == 1n;
       const enPawn = gs.twoSqPawn.length ? gs.twoSqPawn[0] : -1;
@@ -48,18 +74,7 @@ export function registerGameEvents(io, socket){
       if (isTwoSquarePawn) gs.twoSqPawn.push(des);
 
       updateBitAfterMove(src, des, stateToRoom[`${roomId}`].gameState);
-
-      let threefold = false;
-      if (gs.moves.length >= 6) {gs.moves.pop(); gs.moves.pop();};
-      gs.moves.push([src, des]);
-      if (gs.moves.length == 6){
-        const m = gs.moves;
-        if ((m[0][0] == m[2][1] && m[2][1] == m[4][0]) && (m[0][1] == m[2][0] && m[2][0] == m[4][1])){
-          if ((m[1][0] == m[3][1] && m[3][1] == m[5][0]) && (m[1][1] == m[3][0] && m[3][0] == m[5][1])){
-            threefold = true;
-          }
-        }
-      }
+      const promotionPending = isPromoted(src, des, gs);
       
       console.log('apply move immited from the  server');
       io.sockets.in(roomId).emit('apply move', src, des);
@@ -94,17 +109,17 @@ export function registerGameEvents(io, socket){
         }
       }
       
-      if (isPromoted(src, des, stateToRoom[`${roomId}`].gameState)){
+      if (promotionPending){
         socket.emit('promote', rooms.get(roomId).turn, des);
       }
       checkCastleUtils(rooms.get(roomId).turn, src, des);
       
       rooms.get(roomId).turn = rooms.get(roomId).turn == 'white' ? 'black' : 'white';
       console.log('now the turn is ', rooms.get(roomId).turn)
-      
-      if (threefold){
-        io.sockets.in(roomId).emit('threefold repetition');
-        destroyRoom(io, roomId);
+
+      const capturedColor = movingWhitePawn ? 'black' : movingBlackPawn ? 'white' : '';
+      if (!promotionPending && recordThreefold(gs, rooms.get(roomId).turn, isEnPassant ? capturedColor : '', isEnPassant ? enPawn : -1)){
+        endThreefold(io, roomId);
         return;
       }
 
@@ -192,6 +207,10 @@ export function registerGameEvents(io, socket){
     stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS = stateToRoom[`${roomId}`].gameState.BLACK_BISHOPS | stateToRoom[`${roomId}`].gameState.BLACK_KING | stateToRoom[`${roomId}`].gameState.BLACK_KNIGHTS | stateToRoom[`${roomId}`].gameState.BLACK_PAWNS | stateToRoom[`${roomId}`].gameState.BLACK_QUEEN | stateToRoom[`${roomId}`].gameState.BLACK_ROOKS;
     stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS = stateToRoom[`${roomId}`].gameState.WHITE_BISHOPS | stateToRoom[`${roomId}`].gameState.WHITE_KING | stateToRoom[`${roomId}`].gameState.WHITE_KNIGHTS | stateToRoom[`${roomId}`].gameState.WHITE_PAWNS | stateToRoom[`${roomId}`].gameState.WHITE_QUEEN | stateToRoom[`${roomId}`].gameState.WHITE_ROOKS;
     stateToRoom[`${roomId}`].gameState.BLACK_WHITE = stateToRoom[`${roomId}`].gameState.WHITE_PLACEMENTS | stateToRoom[`${roomId}`].gameState.BLACK_PLACEMENTS;
+    if (recordThreefold(roomState.gameState, room.turn)){
+      endThreefold(io, roomId);
+      return;
+    }
   })
 
   socket.on('i am out', (color, roomId)=>{

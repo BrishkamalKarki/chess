@@ -617,25 +617,25 @@ inline int materialAdv(){
 // pawn
 constexpr int pawnPST[64] = {
   0,  0,  0,  0,  0,  0,  0,  0,
-  50, 50, 50, 50, 50, 50, 50, 50,
-  10, 10, 20, 30, 30, 20, 10, 10,
-  5,  5, 10, 25, 25, 10,  5,  5,
-  0,  0,  0, 20, 20,  0,  0,  0,
-  5, -5,-10,  0,  0,-10, -5,  5,
   5, 10, 10,-20,-20, 10, 10,  5,
+  5, -5,-10,  0,  0,-10, -5,  5,
+  0,  0,  0, 20, 20,  0,  0,  0,
+  5,  5, 10, 25, 25, 10,  5,  5,
+  10, 10, 20, 30, 30, 20, 10, 10,
+  50, 50, 50, 50, 50, 50, 50, 50,
   0,  0,  0,  0,  0,  0,  0,  0
 };
 
 // knight
 constexpr int knightPST[64] = {
-  -50,-40,-30,-30,-30,-30,-40,-50,
-  -40,-20,  0,  0,  0,  0,-20,-40,
-  -30,  0, 10, 15, 15, 10,  0,-30,
-  -30,  5, 15, 20, 20, 15,  5,-30,
-  -30,  0, 15, 20, 20, 15,  0,-30,
-  -30,  5, 10, 15, 15, 10,  5,-30,
-  -40,-20,  0,  5,  5,  0,-20,-40,
-  -50,-40,-30,-30,-30,-30,-40,-50
+ -50,-40,-30,-30,-30,-30,-40,-50,  
+ -40,-20,  0,  5,  5,  0,-20,-40,  
+ -30,  5, 10, 15, 15, 10,  5,-30,  
+ -30,  0, 15, 20, 20, 15,  0,-30,  
+ -30,  5, 15, 20, 20, 15,  5,-30,  
+ -30,  0, 10, 15, 15, 10,  0,-30,  
+ -40,-20,  0,  0,  0,  0,-20,-40,  
+ -50,-40,-30,-30,-30,-30,-40,-50   
 };
 
 // bishop
@@ -651,15 +651,15 @@ constexpr int bishopPST[64] = {
 };
 
 // rook
-constexpr int rookPST[64] = {
-    0,  0,  5, 10, 10,  5,  0,  0,
+constexpr int rookPST[64] = {          
+  0,  0,  0,  5,  5,  0,  0,  0,
   -5,  0,  0,  0,  0,  0,  0, -5,
   -5,  0,  0,  0,  0,  0,  0, -5,
   -5,  0,  0,  0,  0,  0,  0, -5,
   -5,  0,  0,  0,  0,  0,  0, -5,
   -5,  0,  0,  0,  0,  0,  0, -5,
-    5, 10, 10, 10, 10, 10, 10,  5,
-    0,  0,  0,  5,  5,  0,  0,  0
+  5, 10, 10, 10, 10, 10, 10,  5,
+  0,  0,  0,  0,  0,  0,  0,  0
 };
 
 // queen
@@ -860,7 +860,6 @@ inline int mobilityBonus(){
   moves.clear();
 
   gs.turn = 1;
-  score = 0;
   forQueen(1, moves);
   score -= moves.size() * MOBILITY_WEIGHT[1];
   moves.clear();
@@ -877,7 +876,7 @@ inline int mobilityBonus(){
   return gs.turn == 0 ? score: -score;
 }
 
-constexpr int KING_PAWN_SHIELD_BONUS = 20;
+constexpr int KING_PAWN_SHIELD_BONUS = 10;
 constexpr int KING_OTHER_PIECE_SHIELD_BONUS = 5;
 constexpr int KING_ATTACKED_SQUARE_PENALTY = 10;
 constexpr int KING_CENTER_EXPOSURE_PENALTY = 15;
@@ -955,12 +954,18 @@ inline int kingSafetyScore(){
 int evaluate(){
   int ttlScore = 0;
   // ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
-  ttlScore += materialAdv() + kingSafetyScore() + positionalBonus() + pawnStructScore();
+  // ttlScore += materialAdv() + positionalBonus();
+  ttlScore += materialAdv() + positionalBonus() + bishopPairBonus() + kingSafetyScore();
   return ttlScore;
 }
 
 int moveOrderEvaluator(const Move& move){
-  int score = 0;
+  const int* PST[6] = {kingPST, queenPST, bishopPST, knightPST, rookPST, pawnPST};
+  int piece = move.srcPiece % 10 - 1;
+  int fromSq = gs.turn == 0 ? move.from : (move.from ^ 56); // opposite mirror for pst
+  int toSq = gs.turn == 0 ? move.to : (move.to ^ 56);
+  int score = PST[piece][toSq] - PST[piece][fromSq];
+
   if (move.targetPiece != 0){
     int targetPiece = move.targetPiece%10 - 1;
     int srcPiece = move.srcPiece%10 - 1;
@@ -1074,7 +1079,6 @@ int negaMax(int alpha, int beta, int depth){
   for (auto& move: moves){
     makeMove(move);
     int score = -negaMax(-beta, -alpha, depth - 1);
-
     unMakeMove(move);
     if (searchStopped) return 0;
     if (score > bestScore){
@@ -1116,17 +1120,17 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
     gs.castlingRights = castlingRights;
 
     int botTime;
-    if (depth == 1){
-      botTime = 1000; // ms
+    if (depth == 3){
+      botTime = 2000; // ms
       gs.qDepth = 1;
     }
-    else if (depth == 3){
-      botTime = 2000; // ms
+    else if (depth == 4){
+      botTime = 5000; // ms
       gs.qDepth = 2;
     }
     else{
-      botTime = 4000; // ms
-      gs.qDepth = 3;
+      botTime = 8000; // ms
+      gs.qDepth = 4;
     }
 
     auto start = std::chrono::steady_clock::now();
@@ -1146,6 +1150,5 @@ int getBestMove(uint64_t wK, uint64_t wN, uint64_t wQ, uint64_t wR, uint64_t wB,
         bestMove = bestMoveThisIteration;
       if (std::chrono::steady_clock::now() >= searchDeadline) break;
     }
-
     return bestMove;
 }
