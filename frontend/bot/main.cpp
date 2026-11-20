@@ -697,7 +697,7 @@ inline int positionalBonus(){
       });
     } 
   }
-  return score;
+  return gs.turn == 0 ? score: -score;
 }
 
 inline int pawnPeriPheralChecker(int turn, int srcPos, int top, int down, int lf, int rg, int tr, int tl, int dr, int dl){ // checks how many side has pawn around it
@@ -719,7 +719,7 @@ inline int pawnPeriPheralChecker(int turn, int srcPos, int top, int down, int lf
   return num;
 }
 
-int PAWN_STRUCT_SCORE[3] = {-15, 5, -15} // doubled pawn (penalty), protected pawn, isolated pawn
+int PAWN_STRUCT_SCORE[3] = {-15, 5, -15}; // doubled pawn (penalty), protected pawn, isolated pawn
 inline int pawnStructScore(){
   int score = 0;
   forEachBit(gs.bitBoards[0][5], [&](int pos){
@@ -733,12 +733,12 @@ inline int pawnStructScore(){
   forEachBit(gs.bitBoards[1][5], [&](int pos){
     int doublePawn = pawnPeriPheralChecker(0, pos, 1, 1, 0, 0, 0, 0, 0, 0);
     int protectedPawn = pawnPeriPheralChecker(0, pos, 0, 0, 0, 0, 1, 1, 0, 0); // protected by this pawn
-    int isolatedPawn = pawnPeriPheralChecker(0, pos, 1, 1, 1, 1, 1, 1, 1, 1
+    int isolatedPawn = pawnPeriPheralChecker(0, pos, 1, 1, 1, 1, 1, 1, 1, 1);
     if (doublePawn > 0)
       score += PAWN_STRUCT_SCORE[0] / doublePawn;
     score += protectedPawn*PAWN_STRUCT_SCORE[1] + isolatedPawn*PAWN_STRUCT_SCORE[2];  
   });
-  return score;
+  return gs.turn == 0 ? score: -score;
 }
 
 constexpr int BISHOP_PAIR_BONUS = 30;
@@ -754,12 +754,183 @@ inline int bishopPairBonus(){ // both bishop pair are powerfull since they contr
   });
   if (wBisop > 1) score += BISHOP_PAIR_BONUS;
   if (bBisop > 1) score -= BISHOP_PAIR_BONUS;
-  return score;
+  return gs.turn == 0 ? score: -score;
+}
+
+constexpr int ROOK_OPEN_FILE_BONUS = 25; // no enemy or friend pawn on file
+constexpr int ROOK_SEMI_OPEN_FILE_BONUS = 15; // no friend pawn but enemy pawn
+constexpr int ROOK_SEVENTH_RANK_BONUS = 20; // for white 6 for black 1 - opponent second rank
+constexpr int ROOK_SEVENTH_RANK_KING_BONUS = 10; // additional bonus +10 if enemy king is on back rank
+inline int rookPosBonus(){
+  int score = 0;
+  int enmPawn = 0; // enemy pawn count on the file where there is rook
+  int frndPawn = 0;
+  int whiteKingRank = 0;
+  int blackKingRank = 0;
+  forEachBit(gs.bitBoards[0][0], [&](int pos){
+    whiteKingRank = pos/8;
+  }); 
+  forEachBit(gs.bitBoards[1][0], [&](int pos){
+    blackKingRank = pos/8;
+  }); 
+  for (int clr = 0; clr <= 1; clr++){
+    forEachBit(gs.bitBoards[clr][4], [&](int pos){
+      int file = pos%8;
+      int rank = pos/8;
+      for (int f = 0; f <= 7; f++){
+        int piece = whatIsAt(file+f*8);
+        if (piece == 6 || piece == 16 && clr == (piece/10)) frndPawn++;
+        else if (piece == 6 || piece == 16 && clr != (piece/10)) enmPawn++;
+      }
+      if ((clr == 0 && frndPawn == 0) && enmPawn == 0) score += ROOK_OPEN_FILE_BONUS;
+      else if ((clr == 0 && frndPawn == 0) && enmPawn != 0) score += ROOK_SEMI_OPEN_FILE_BONUS;
+      if ((clr == 1 && frndPawn == 0) && enmPawn == 0) score -= ROOK_OPEN_FILE_BONUS;
+      else if ((clr == 1 && frndPawn == 0) && enmPawn != 0) score -= ROOK_SEMI_OPEN_FILE_BONUS;
+      if (pos == 6 && clr == 0){
+        score += ROOK_SEVENTH_RANK_BONUS;
+        if (blackKingRank == 7) score += ROOK_SEVENTH_RANK_KING_BONUS;
+      }
+      else if (pos == 1 && clr == 1){
+        score -= ROOK_SEVENTH_RANK_BONUS;
+        if (whiteKingRank == 0) score -= ROOK_SEVENTH_RANK_KING_BONUS;
+      }
+      enmPawn = 0;
+      frndPawn = 0;
+    });
+  }
+  return gs.turn == 0 ? score: -score;
+}
+
+// queen has huge possible moves and so rook(less than queen thouugh) so less score and viceversa
+constexpr int MOBILITY_WEIGHT[6] = {0, 1, 4, 4, 2, 0}; // king queen bishop knight rook pawn
+inline int mobilityBonus(){
+  vector<Move> moves;
+  int score = 0;
+  int orgTurn = gs.turn;
+  gs.turn = 0;
+  forQueen(1, moves);
+  score += moves.size() * MOBILITY_WEIGHT[1];
+  moves.clear();
+  forBishops(2, moves);
+  score += moves.size() * MOBILITY_WEIGHT[2];
+  moves.clear();
+  forKnights(3, moves);
+  score += moves.size() * MOBILITY_WEIGHT[3];
+  moves.clear();
+  forRooks(4, moves);
+  score += moves.size() * MOBILITY_WEIGHT[4];
+  moves.clear();
+
+  gs.turn = 1;
+  score = 0;
+  forQueen(1, moves);
+  score -= moves.size() * MOBILITY_WEIGHT[1];
+  moves.clear();
+  forBishops(2, moves);
+  score -= moves.size() * MOBILITY_WEIGHT[2];
+  moves.clear();
+  forKnights(3, moves);
+  score -= moves.size() * MOBILITY_WEIGHT[3];
+  moves.clear();
+  forRooks(4, moves);
+  score -= moves.size() * MOBILITY_WEIGHT[4];
+  moves.clear();
+  gs.turn = orgTurn;
+  return gs.turn == 0 ? score: -score;
+}
+
+constexpr int KING_PAWN_SHIELD_BONUS = 20;
+constexpr int KING_OTHER_PIECE_SHIELD_BONUS = 5;
+constexpr int KING_ATTACKED_SQUARE_PENALTY = 10;
+constexpr int KING_OPEN_FILE_PENALTY = 15;
+constexpr int KING_CENTER_EXPOSURE_PENALTY = 15;
+inline int kingSafetyScore(){
+  int score = 0;
+  int wP = -1;
+  int bP = -1;
+  forEachBit(gs.bitBoards[0][0], [&](int pos){
+    wP = pos;
+  }); 
+  forEachBit(gs.bitBoards[1][0], [&](int pos){
+    bP = pos;
+  }); 
+  // 1 box around the king 
+  // P P P 
+  // P K P 
+  // P P P 
+  int wKC = wP%8; int wKR = wP/8;
+  int bKC = bP%8; int bKR = bP/8;
+  int aroundWKSqs[] = {wP+7, wP+8, wP+9, wP-1, wP+1, wP-7, wP-8, wP-9}; // arround the white king
+  int aroundBKSqs[] = {bP-7, bP-8, bP-9, bP-1, bP+1, bP+7, bP+8, bP+9}; // arround the black king
+  int pawnAhead = 0;
+  int otherPieceAhead = 0;
+  for (int i = 0; i <= 2; i++){
+    if (!(abs(wKC - aroundWKSqs[i]%8) <= 1)) continue;
+    int aHP = whatIsAt(aroundWKSqs[i]); // piece ahead
+    if (aHP == 6) pawnAhead++;
+    else if (aHP == 1 || aHP == 2 || aHP == 3 || aHP == 4 || aHP == 5) otherPieceAhead++;
+  }
+  score += pawnAhead * KING_PAWN_SHIELD_BONUS + otherPieceAhead * KING_OTHER_PIECE_SHIELD_BONUS;
+  if ((wKR == 2 || wKR == 3 || wKR == 4 || wKR == 5) && (wKC == 2 || wKC == 3 || wKC == 4 || wKC == 5)) score -= KING_CENTER_EXPOSURE_PENALTY;
+  pawnAhead = 0;
+  otherPieceAhead = 0;
+  for (int i = 0; i <= 2; i++){
+    if (!(abs(bKC - aroundbKSqs[i]%8) <= 1)) continue;
+    int aHP = whatIsAt(aroundBKSqs[i]); // piece ahead
+    if (aHP == 16) pawnAhead++;
+    else if (aHP == 11 || aHP == 12 || aHP == 13 || aHP == 14 || aHP == 15) otherPieceAhead++;
+  }
+  score -= pawnAhead * KING_PAWN_SHIELD_BONUS + otherPieceAhead * KING_OTHER_PIECE_SHIELD_BONUS;
+  if ((bKR == 2 || bKR == 3 || bKR == 4 || bKR == 5) && (bKC == 2 || bKC == 3 || bKC == 4 || bKC == 5)) score += KING_CENTER_EXPOSURE_PENALTY;
+  
+  int enmPawn = 0;
+  int frndPawn = 0;
+  for (int clr = 0; clr <= 1; clr++){
+    forEachBit(gs.bitBoards[clr][0], [&](int pos){
+      int file = pos%8;
+      for (int f = 0; f <= 7; f++){
+        int piece = whatIsAt(file+f*8);
+        if ((piece == 6 || piece == 16) && clr == (piece/10)) frndPawn++;
+        else if ((piece == 6 || piece == 16) && clr != (piece/10)) enmPawn++;
+      }
+      if ((clr == 0 && frndPawn == 0) && enmPawn == 0) score -= KING_OPEN_FILE_PENALTY;
+      if ((clr == 1 && frndPawn == 0) && enmPawn == 0) score += KING_OPEN_FILE_PENALTY;
+      enmPawn = 0;
+      frndPawn = 0;
+    });
+  }
+
+  int attack = 0;
+  int orgTurn = gs.turn;
+  vector<Move> moves = moveGenerator();
+  int steps[] = {+7, +8, +9, -1, +1, -7, -8, -9, +7+8, +8+8, +9+8, -1-1, +1+1, -7+8, -8+8, -9+8};
+  for (int i = 0; i <= 1; i++){
+    for (int j = 0; j <= 15; j++){
+      int pos = wP+steps[j];
+      if (pos > 63 || pos < 0) continue;
+      if (i == 0){
+        if (abs(wKR-(int)pos/8) > 2 || abs(wKC-(int)pos%8) > 2) continue;
+        attack++;
+      }
+      else{
+        if (abs(bKR-(int)pos/8) > 2 || abs(bKC-(int)pos%8) > 2) continue;
+        attack++;
+      }
+    }
+    if (i == 0){
+      score -= attack * KING_ATTACKED_SQUARE_PENALTY;
+    }
+    else{
+      score += attack * KING_ATTACKED_SQUARE_PENALTY;
+    }
+    attack = 0;
+  }
+  return gs.turn == 0 ? score: -score;
 }
 
 int evaluate(){
   int ttlScore = 0;
-  ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus();
+  ttlScore += materialAdv() + positionalBonus() + pawnStructScore() + bishopPairBonus() + rookPosBonus() + mobilityBonus() + kingSafetyScore();
   return ttlScore;
 }
 
