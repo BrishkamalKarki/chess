@@ -558,7 +558,7 @@ function updateBitAfterMove(src, des){
 let promoting = false; 
 function animate(timestamp){ // animating the piece move
   if (frame >= 10){
-    console.log('turn :', turn, ' source: ', clickedSrc, 'destination: ', clickedDes);
+    // console.log('turn :', turn, ' source: ', clickedSrc, 'destination: ', clickedDes);
 
     const movingWhitePawn = isPiece(gameState.WHITE_PAWNS, clickedSrc);
     const movingBlackPawn = isPiece(gameState.BLACK_PAWNS, clickedSrc);
